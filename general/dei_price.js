@@ -1,5 +1,4 @@
 const { axios, soliditySha3, ethCall, BN, toBaseUnit } = MuonAppUtils
-const web3 = require('web3');
 
 const CHAINS = {
     mainnet: 1,

@@ -1,5 +1,4 @@
-const { axios, soliditySha3, ethCall } = MuonAppUtils
-const web3 = require('web3');
+const { axios, soliditySha3, ethCall, Web3: web3 } = MuonAppUtils
 
 const SYNCHRONIZER_SERVER = 'https://oracle1.deus.finance'
 

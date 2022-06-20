@@ -1,6 +1,4 @@
 const { axios, soliditySha3, ethCall } = MuonAppUtils
-const { times } = require('lodash');
-const web3 = require('web3');
 
 const ORACLE_ADDRESS = '0x1Bc270B2bE5c361784044ccE3f55c896fB5Fdf5A'
 const DEI_POOL_ADDRESS = '0x9bd5CC542Bc922e95BA41c0702555e830F2C1cB4'
