@@ -44,7 +44,6 @@ module.exports = {
     try {
       const latestBlock = await ethGetBlockNumber(chainId)
       let startBlock = latestBlock - 1200
-      console.log(startBlock)
       let events = await ethGetPastEvents(
         chainId,
         pair,
@@ -512,7 +511,6 @@ module.exports = {
   },
   calculatePriceToken: function (pairVWAPs, pairs) {
     let volume = pairVWAPs.reduce((previousValue, currentValue) => {
-      console.log(previousValue.toString(), currentValue.toString())
       return previousValue.add(currentValue.sumVolume)
     }, new BN(0))
     let price = pairVWAPs.reduce((price, currentValue) => {
