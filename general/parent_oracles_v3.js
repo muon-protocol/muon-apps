@@ -7,8 +7,11 @@ const {
   multiCall,
   groupBy,
   flatten,
-  getWeb3
+  ethGetBlock,
+  ethGetBlockNumber,
+  ethGetPastEvents
 } = MuonAppUtils
+
 const {
   Info_ABI,
   TOKEN,
@@ -37,17 +40,22 @@ module.exports = {
   PRICE_TOLERANCE: '0.05',
   VALID_CHAINS: ['250'],
 
-  getEvents: async function (web3, pair, exchange) {
+  getEvents: async function (chainId, pair, exchange) {
     try {
-      const contract = new web3.eth.Contract(EVENTS_ABI[exchange], pair)
-      const latestBlock = await web3.eth.getBlockNumber()
+      const latestBlock = await ethGetBlockNumber(chainId)
       let startBlock = latestBlock - 1200
       console.log(startBlock)
-      let events = await contract.getPastEvents('allEvents', {
-        fromBlock: startBlock.toString(),
-        toBlock: latestBlock.toString(),
-        topics: [EVENT_TOPICS[exchange]]
-      })
+      let events = await ethGetPastEvents(
+        chainId,
+        pair,
+        this.EVENTS_ABI[exchange],
+        'allEvents',
+        {
+          fromBlock: startBlock.toString(),
+          toBlock: latestBlock.toString(),
+          topics: [EVENT_TOPICS[exchange]]
+        }
+      )
       return events
     } catch (error) {
       throw { message: `GET_EVENTS_ERROR: ${error.message}` }
@@ -55,14 +63,13 @@ module.exports = {
   },
 
   getTokenTxs: async function (pair, exchange, chainId) {
-    let web3 = await getWeb3(chainId)
-    let events = await this.getEvents(web3, pair, exchange)
+    let events = await this.getEvents(chainId, pair, exchange)
     let result = []
     if (!events.length) {
       throw { message: 'NO_EVENTS_EXIST' }
     }
     const firstBlockNumber = events[events.length - 1].blockNumber
-    const firstBlock = await web3.eth.getBlock(firstBlockNumber)
+    const firstBlock = await ethGetBlock(chainId, firstBlockNumber)
     const firstBlockTimestamp = firstBlock.timestamp
     await Promise.all(
       events.map(async (item, i) => {
