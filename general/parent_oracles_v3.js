@@ -48,7 +48,7 @@ module.exports = {
       let events = await ethGetPastEvents(
         chainId,
         pair,
-        this.EVENTS_ABI[exchange],
+        EVENTS_ABI[exchange],
         'allEvents',
         {
           fromBlock: startBlock.toString(),
