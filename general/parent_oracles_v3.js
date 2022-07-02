@@ -55,6 +55,8 @@ module.exports = {
           topics: [EVENT_TOPICS[exchange]]
         }
       )
+
+      // console.log(events)
       return events
     } catch (error) {
       throw { message: `GET_EVENTS_ERROR: ${error.message}` }
@@ -64,6 +66,8 @@ module.exports = {
   getTokenTxs: async function (pair, exchange, chainId) {
     let events = await this.getEvents(chainId, pair, exchange)
     let result = []
+    console.log(!events.length, events.length)
+
     if (!events.length) {
       throw { message: 'NO_EVENTS_EXIST' }
     }
@@ -651,7 +655,7 @@ module.exports = {
         return {
           token: token,
           tokenPrice: price.toString(),
-          tokenPriceByAmount: p.toString(),
+          // tokenPriceByAmount: p.toString(),
 
           // pairs: pairs,
           volume: volume.toString(),

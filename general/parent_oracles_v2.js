@@ -201,7 +201,7 @@ module.exports = {
     })
     return metadata
   },
-  prepareTokenTx: async function (pair, exchange, start, end) {
+  prepareTokenTx: async function (pair, exchange, start, end, chainId) {
     const tokenTxs = await this.getTokenTxs(
       pair,
       GRAPH_URL[exchange],
@@ -275,8 +275,14 @@ module.exports = {
     return x0.mul(new BN('3')).mul(y2).div(this.SCALE).add(x03)
   },
 
-  pairVWAP: async function (pair, index, exchange, isStable, start, end) {
-    const tokenTxs = await this.prepareTokenTx(pair, exchange, start, end)
+  pairVWAP: async function (pair, index, isStable, start, end) {
+    const tokenTxs = await this.prepareTokenTx(
+      pair.address,
+      pair.exchange,
+      start,
+      end,
+      pair.chainId
+    )
     if (tokenTxs) {
       let sumWeightedPrice = new BN('0')
       let sumVolume = new BN('0')
@@ -513,9 +519,9 @@ module.exports = {
         throw { message: 'INVALID_PAIRS' }
       }
       return this.pairVWAP(
-        pair.address,
+        pair,
         index,
-        pair.exchange,
+        // pair.exchange,
         currentMetadata.stable,
         start,
         end
