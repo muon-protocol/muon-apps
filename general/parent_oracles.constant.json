@@ -10,7 +10,7 @@
     "beets": "https://api.thegraph.com/subgraphs/name/shayanshiravani/beetsfi-minimal",
     "solidly": "https://api.thegraph.com/subgraphs/name/shayanshiravani/solidly",
     "spirit": "https://api.thegraph.com/subgraphs/name/shayanshiravani/spiritswap",
-    "uniswap": "https://api.thegraph.com/subgraphs/name/ianlapham/uniswapv2",
+    "uniswap": "https://api.studio.thegraph.com/query/21879/uniswapv2/0.0.1",
     "spooky": "https://api.thegraph.com/subgraphs/name/shayanshiravani/spookyswap",
     "traderjoe": "https://api.thegraph.com/subgraphs/name/traderjoe-xyz/exchange",
     "sushi": {
@@ -26,7 +26,7 @@
     "beets": "QmYqJ4a6BFjxGDgjN4oaGDdB31n1v2jvXyPZTcQ6TDEbZ3",
     "solidly": "QmY4uUc7kjAC2sCbviZGoTwttbJ6dXezWELyrn9oebAr58",
     "spirit": "QmUptbhTmAVCUTNeK2afecQJ3DFLgk9m4dBerfpqkTEJvi",
-    "uniswap": "Qmc7K8dKoadu1VcHfAV45pN4sPnwZcU2okV6cuU4B7qQp1",
+    "uniswap": "QmYpb9UBs4k533aDhH8Z9STjyr3WADC3NNtUzSbni4Ezfu",
     "spooky": "QmQnteZnJmshPHuUbYNxSCVTEyKunncwCUgYiyqEFQeDV7",
     "traderjoe": "QmW62QDNJriA73HeyDAwnEaFyDNLZc7o8m5ewSALDRedoM",
     "sushi": {
