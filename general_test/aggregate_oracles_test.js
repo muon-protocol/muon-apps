@@ -56,8 +56,6 @@ const tokenName = 'DEUS'
 const token = '0xDE5ed76E7c05eC5e4572CfC88d1ACEA165109E44' // token:deus
 const example_1 = {
   token,
-  start: 1652067389,
-  end: 1652075389,
   pairs: [
     [
       {
@@ -94,19 +92,19 @@ const example_1 = {
         chainId: '250',
         address: '0xe7e90f5a767406eff87fdad7eb07ef407922ec1d' // USDC/WFTM
       }
-    ],
-    [
-      {
-        exchange: 'uniswap',
-        chainId: '1',
-        address: '0x367E2D443988E4b222FBFdAFDb35eeB7ddA9FBB7' // WETH/DEUS
-      },
-      {
-        exchange: 'uniswap',
-        chainId: '1',
-        address: '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc' //  WETH/USDC
-      }
     ]
+    // [
+    //   {
+    //     exchange: 'uniswap',
+    //     chainId: '1',
+    //     address: '0x367E2D443988E4b222FBFdAFDb35eeB7ddA9FBB7' // WETH/DEUS
+    //   },
+    //   {
+    //     exchange: 'uniswap',
+    //     chainId: '1',
+    //     address: '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc' //  WETH/USDC
+    //   }
+    // ]
   ]
 }
 
@@ -142,8 +140,6 @@ const tokenLP = '0xF42dBcf004a93ae6D5922282B304E2aEFDd50058' // vAMM-DEI/DEUS
 const LP_Params = {
   token: tokenLP,
   chainId: '250',
-  start: 1652067389,
-  end: 1652075389,
   pairs0: [
     [
       {
@@ -254,7 +250,7 @@ const LP_Params2 = {
   ]
 }
 testLP(LP_Params, tokenLP, tokenNameLP)
-testLP(LP_Params2, tokenLP2, tokenNameLP2)
+// testLP(LP_Params2, tokenLP2, tokenNameLP2)
 
 testPrice(example_1, token, tokenName)
-testPrice(example_2, token2, tokenName2)
+// testPrice(example_2, token2, tokenName2)

@@ -1,7 +1,12 @@
 const { axios, toBaseUnit, soliditySha3, BN, multiCall, flatten, groupBy } =
   MuonAppUtils
 const ParentOraclesV2 = require('./parent_oracles_v2')
-const { Info_ABI, STABLE_EXCHANGES } = require('./parent_oracles.constant.json')
+const {
+  Info_ABI,
+  STABLE_EXCHANGES,
+  GRAPH_URL,
+  GRAPH_DEPLOYMENT_ID
+} = require('./parent_oracles.constant.json')
 const APP_CONFIG = {
   chainId: 250
 }
@@ -61,6 +66,27 @@ module.exports = {
     return calls
   },
 
+  prepareTokenTx: async function (pair, exchange, start, end, chainId) {
+    if (exchange === 'sushi') {
+      const tokenTxs = await this.getTokenTxs(
+        pair,
+        GRAPH_URL[exchange][chainId],
+        GRAPH_DEPLOYMENT_ID[exchange][chainId],
+        start,
+        end
+      )
+      return tokenTxs
+    }
+    const tokenTxs = await this.getTokenTxs(
+      pair,
+      GRAPH_URL[exchange],
+      GRAPH_DEPLOYMENT_ID[exchange],
+      start,
+      end
+    )
+
+    return tokenTxs
+  },
   preparePromisePair: function (token, pairs, metadata, start, end) {
     return pairs.map((info) => {
       let inputToken = token
@@ -74,13 +100,13 @@ module.exports = {
     pairs.forEach((pair) => {
       let volume = pair.reduce((previousValue, currentValue) => {
         const result = pairVWAPs.find(
-          (item) => item.pair === currentValue.address
+          (item) => item.pair.address === currentValue.address
         )
         return previousValue.add(result.sumVolume)
       }, new BN(0))
       let price = pair.reduce((price, currentValue) => {
         const result = pairVWAPs.find(
-          (item) => item.pair === currentValue.address
+          (item) => item.pair.address === currentValue.address
         )
         return price.mul(result.tokenPrice).div(this.SCALE)
       }, new BN(this.SCALE))
