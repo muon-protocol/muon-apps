@@ -1,0 +1,52 @@
+{
+  "allocation": {
+    "0x4CC129Ca88ff495C1E1Fb33688FEf77461dD2b10": {
+      "1": 500,
+      "2": 1000,
+      "3": 2000
+    }
+  },
+
+  "PUBLIC_PHASE": {
+    "4": 500,
+    "5": 1000,
+    "6": 2000
+  },
+
+  "ABI_roundBalances": [
+    {
+      "inputs": [
+        { "internalType": "address", "name": "", "type": "address" },
+        { "internalType": "uint8", "name": "", "type": "uint8" }
+      ],
+      "name": "roundBalances",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+
+  "ABI_totalBalance": [
+    {
+      "inputs": [],
+      "name": "totalBalance",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+
+  "IDO_PARTICIPANT_TOKENS": 3000000,
+
+  "chainMap": {
+    "ETH": 4,
+    "BSC": 97,
+    "MATIC": 80001
+  },
+
+  "LockType": {
+    "ALLOCATION": "ALLOCATION",
+    "COOL_DOWN": "COOL_DOWN"
+  },
+  "DEPOSIT_LOCK": "mrc20-deposit-lock"
+}
