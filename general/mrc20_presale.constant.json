@@ -37,6 +37,7 @@
   ],
 
   "IDO_PARTICIPANT_TOKENS": 3000000,
+  "MUON_PRICE": 0.1,
 
   "chainMap": {
     "ETH": 4,

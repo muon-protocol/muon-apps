@@ -8,7 +8,8 @@ const {
   chainMap,
   LockType,
   DEPOSIT_LOCK,
-  PUBLIC_PHASE
+  PUBLIC_PHASE,
+  MUON_PRICE
 } = require('./mrc20_presale.constant.json')
 
 const getTimestamp = () => Date.now()
@@ -134,9 +135,12 @@ module.exports = {
 
     switch (method) {
       case 'deposit':
-        let { token, forAddress, amount, sign, chainId, hashTimestamp } = params
+        let { token, forAddress, amount, sign, chainId } = params
         if (!token) throw { message: 'Invalid token' }
-        if (!amount) throw { message: 'Invalid deposit amount' }
+        if (!amount || amount === '0')
+          throw { message: 'Invalid deposit amount' }
+        if (typeof amount !== 'string')
+          throw { message: 'amount must be string' }
         if (!forAddress) throw { message: 'Invalid sender address' }
         if (!sign) throw { message: 'Invalid signature.' }
         if (!chainId) throw { message: 'Invalid chainId' }
@@ -181,7 +185,6 @@ module.exports = {
           let allPurchase = {}
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
-            // TODO calculate purchase day
             let purchase = await ethCall(
               MRC20Presale[chainId],
               'roundBalances',
@@ -202,7 +205,6 @@ module.exports = {
           let allPurchase = {}
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
-            // TODO calculate purchase day
             let purchase = await ethCall(
               MRC20Presale[chainId],
               'roundBalances',
@@ -236,7 +238,7 @@ module.exports = {
 
           let baseToken = new BN(10).pow(new BN(token.decimals))
           let usdAmount = new BN(amount).mul(tokenPrice).div(baseToken)
-          let usdMaxCap = IDO_PARTICIPANT_TOKENS * 0.1
+          let usdMaxCap = IDO_PARTICIPANT_TOKENS * MUON_PRICE
           if (
             Number(Web3.utils.fromWei(usdAmount, 'ether')) +
               Number(Web3.utils.fromWei(sum, 'ether')) >
@@ -251,13 +253,12 @@ module.exports = {
           day,
           extraParameters: [
             finalMaxCap,
-            chainId.toString(),
+            chainId,
             tokenPrice.toString(),
-            amount.toString(),
-            ...(hashTimestamp ? [request.data.timestamp] : [])
+            amount,
+            request.data.timestamp
           ]
         }
-        console.log(data)
         let lock = await this.readNodeMem(
           { 'data.name': DEPOSIT_LOCK, 'data.value': forAddress },
           { distinct: 'owner' }
@@ -272,23 +273,17 @@ module.exports = {
   },
 
   hashRequestResult: function (request, result) {
-    let {
-      method,
-      data: { params }
-    } = request
+    let { method } = request
 
     switch (method) {
       case 'deposit':
-        let { hashTimestamp } = params
         let { token, day, forAddress, extraParameters } = result
         return soliditySha3([
           { type: 'uint32', value: this.APP_ID },
           { type: 'address', value: token },
           { type: 'uint8', value: day },
           { type: 'uint256', value: extraParameters[3] },
-          ...(hashTimestamp
-            ? [{ type: 'uint256', value: request.data.timestamp }]
-            : []),
+          { type: 'uint256', value: request.data.timestamp },
           { type: 'address', value: forAddress },
           { type: 'uint256', value: extraParameters[0] },
           { type: 'uint256', value: extraParameters[1] },
