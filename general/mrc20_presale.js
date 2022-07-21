@@ -137,7 +137,7 @@ module.exports = {
       case 'deposit':
         let { token, forAddress, amount, sign, chainId } = params
         if (!token) throw { message: 'Invalid token' }
-        if (!amount || amount === '0')
+        if (!amount || parseInt(amount) === 0)
           throw { message: 'Invalid deposit amount' }
         if (typeof amount !== 'string')
           throw { message: 'amount must be string' }
