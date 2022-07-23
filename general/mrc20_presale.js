@@ -136,6 +136,8 @@ module.exports = {
     switch (method) {
       case 'deposit':
         let { token, forAddress, amount, sign, chainId } = params
+        chainId = Number(chainId)
+
         if (!token) throw { message: 'Invalid token' }
         if (!amount || parseInt(amount) === 0)
           throw { message: 'Invalid deposit amount' }
