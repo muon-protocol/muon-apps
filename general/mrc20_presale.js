@@ -15,7 +15,7 @@ const {
 const getTimestamp = () => Date.now()
 
 // the reason start_time is /1000 to be like contract and if it needs to read from contract other formula work correct
-const START_TIME = 1658210410
+const START_TIME = 1658835005
 const PUBLIC_TIME = START_TIME * 1000 + 6 * 24 * 3600 * 1000
 const PUBLIC_SALE = START_TIME * 1000 + 3 * 24 * 3600 * 1000
 
@@ -65,6 +65,7 @@ module.exports = {
         expireAt: PUBLIC_SALE,
         PUBLIC_TIME,
         PUBLIC_SALE,
+        START_TIME,
         day: getDay(currentTime)
       }
     }
@@ -83,6 +84,8 @@ module.exports = {
         expireAt: lock.expireAt,
         PUBLIC_TIME,
         PUBLIC_SALE,
+        START_TIME,
+
         day: getDay(currentTime)
       }
     }
@@ -91,6 +94,8 @@ module.exports = {
       lock: false,
       PUBLIC_TIME,
       PUBLIC_SALE,
+      START_TIME,
+
       day: getDay(currentTime)
     }
   },
@@ -139,7 +144,7 @@ module.exports = {
         chainId = Number(chainId)
 
         if (!token) throw { message: 'Invalid token' }
-        if (!amount || parseInt(amount) === 0)
+        if (!amount || parseInt(amount) === '0')
           throw { message: 'Invalid deposit amount' }
         if (typeof amount !== 'string')
           throw { message: 'amount must be string' }
@@ -152,7 +157,6 @@ module.exports = {
         if (allocationForAddress === undefined && currentTime < PUBLIC_SALE)
           throw { message: 'Allocation is 0 for your address.' }
         const day = getDay(currentTime)
-        console.log({ day })
         let tokenList = await getTokens()
         if (!Object.keys(tokenList).includes(token.toLowerCase()))
           throw { message: 'Invalid token.' }
@@ -180,7 +184,6 @@ module.exports = {
         let finalMaxCap
         if (currentTime < PUBLIC_SALE) {
           allocationForAddress = allocationForAddress[day]
-          console.log(allocationForAddress)
           let maxCap = new BN(
             toBaseUnit(allocationForAddress.toString(), 18).toString()
           )

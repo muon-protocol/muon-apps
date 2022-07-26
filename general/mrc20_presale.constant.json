@@ -9,8 +9,7 @@
 
   "PUBLIC_PHASE": {
     "4": 500,
-    "5": 1000,
-    "6": 2000
+    "5": 1000
   },
 
   "ABI_roundBalances": [
