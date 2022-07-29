@@ -23,7 +23,7 @@ module.exports = {
     'invokeTestMethod',
   ],
 
-  myReadOnlyMethod: async function(params){
+  myReadOnlyMethod: async function({params}){
     return {
       message: "sample readonly method",
       data: [
@@ -33,7 +33,7 @@ module.exports = {
     }
   },
 
-  invokeTestMethod: async function(params) {
+  invokeTestMethod: async function({params}) {
     let request = {
       method: 'call',
       data: {
