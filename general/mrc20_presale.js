@@ -15,7 +15,8 @@ const {
 const getTimestamp = () => Date.now()
 
 // the reason start_time is /1000 to be like contract and if it needs to read from contract other formula work correct
-const START_TIME = 1658835005
+const START_TIME = 1659331182
+
 const PUBLIC_TIME = START_TIME * 1000 + 6 * 24 * 3600 * 1000
 const PUBLIC_SALE = START_TIME * 1000 + 3 * 24 * 3600 * 1000
 
@@ -52,7 +53,9 @@ module.exports = {
   readOnlyMethods: ['checkLock'],
 
   checkLock: async function (params) {
-    const { forAddress } = params
+    const {
+      params: { forAddress }
+    } = params
     const allocationForAddress = allocation[forAddress]
     let currentTime = getTimestamp()
 
@@ -74,18 +77,16 @@ module.exports = {
       'data.name': DEPOSIT_LOCK,
       'data.value': forAddress
     })
-
     if (lock) {
       return {
         message: `Your address is locked. Please wait.`,
         lock: true,
         lockType: LockType.COOL_DOWN,
-        lockTime: 6 * 60,
+        lockTime: 5 * 60,
         expireAt: lock.expireAt,
         PUBLIC_TIME,
         PUBLIC_SALE,
         START_TIME,
-
         day: getDay(currentTime)
       }
     }
@@ -95,7 +96,6 @@ module.exports = {
       PUBLIC_TIME,
       PUBLIC_SALE,
       START_TIME,
-
       day: getDay(currentTime)
     }
   },
@@ -108,6 +108,8 @@ module.exports = {
     switch (method) {
       case 'deposit':
         const { forAddress } = params
+        let currentTime = getTimestamp()
+
         let memory = [
           { type: 'uint256', name: DEPOSIT_LOCK, value: forAddress }
         ]
@@ -119,12 +121,13 @@ module.exports = {
           throw {
             message: {
               message: `Your address is locked. Please wait.`,
-              lockTime: 6 * 60,
-              expireAt: lock.expireAt
+              lockTime: 5 * 60,
+              expireAt: lock.expireAt,
+              day: getDay(currentTime)
             }
           }
         }
-        await this.writeNodeMem(memory, 6 * 60)
+        await this.writeNodeMem(memory, 5 * 60)
         return
 
       default:
@@ -142,7 +145,7 @@ module.exports = {
       case 'deposit':
         let { token, forAddress, amount, sign, chainId } = params
         chainId = Number(chainId)
-
+        // TODO use await out  side of for
         if (!token) throw { message: 'Invalid token' }
         if (!amount || parseInt(amount) === '0')
           throw { message: 'Invalid deposit amount' }

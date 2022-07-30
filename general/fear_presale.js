@@ -3980,7 +3980,9 @@ module.exports = {
   readOnlyMethods: ['checkLock'],
 
   checkLock: async function (params) {
-    const { forAddress } = params
+    const {
+      params: { forAddress }
+    } = params
     const allocationForAddress = allocation[forAddress]
     let currentTime = Date.now()
 
