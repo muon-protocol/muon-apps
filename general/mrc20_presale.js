@@ -145,7 +145,7 @@ module.exports = {
       case 'deposit':
         let { token, forAddress, amount, sign, chainId } = params
         chainId = Number(chainId)
-        // TODO use await out  side of for
+
         if (!token) throw { message: 'Invalid token' }
         if (!amount || parseInt(amount) === '0')
           throw { message: 'Invalid deposit amount' }
@@ -160,6 +160,8 @@ module.exports = {
         if (allocationForAddress === undefined && currentTime < PUBLIC_SALE)
           throw { message: 'Allocation is 0 for your address.' }
         const day = getDay(currentTime)
+        if (day <= 0) throw { message: 'No Active Sale' }
+
         let tokenList = await getTokens()
         if (!Object.keys(tokenList).includes(token.toLowerCase()))
           throw { message: 'Invalid token.' }
@@ -191,16 +193,24 @@ module.exports = {
             toBaseUnit(allocationForAddress.toString(), 18).toString()
           )
           let allPurchase = {}
+          let purchasePromises = []
+
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
-            let purchase = await ethCall(
-              MRC20Presale[chainId],
-              'roundBalances',
-              [forAddress, day],
-              ABI_roundBalances,
-              chainId
+            purchasePromises.push(
+              ethCall(
+                MRC20Presale[chainId],
+                'roundBalances',
+                [forAddress, day],
+                ABI_roundBalances,
+                chainId
+              )
             )
-            allPurchase = { ...allPurchase, [chainId]: new BN(purchase) }
+          }
+          let purchase = await Promise.all(purchasePromises)
+          for (let index = 0; index < Object.keys(chainMap).length; index++) {
+            const chainId = chainMap[Object.keys(chainMap)[index]]
+            allPurchase = { ...allPurchase, [chainId]: new BN(purchase[index]) }
           }
           let sum = Object.keys(allPurchase)
             .filter((chain) => chain != chainId)
@@ -211,33 +221,52 @@ module.exports = {
             toBaseUnit(PUBLIC_PHASE[day].toString(), 18).toString()
           )
           let allPurchase = {}
+          let purchasePromises = []
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
-            let purchase = await ethCall(
-              MRC20Presale[chainId],
-              'roundBalances',
-              [forAddress, day],
-              ABI_roundBalances,
-              chainId
+            purchasePromises.push(
+              ethCall(
+                MRC20Presale[chainId],
+                'roundBalances',
+                [forAddress, day],
+                ABI_roundBalances,
+                chainId
+              )
             )
-            allPurchase = { ...allPurchase, [chainId]: new BN(purchase) }
           }
+          let purchase = await Promise.all(purchasePromises)
+          for (let index = 0; index < Object.keys(chainMap).length; index++) {
+            const chainId = chainMap[Object.keys(chainMap)[index]]
+            allPurchase = { ...allPurchase, [chainId]: new BN(purchase[index]) }
+          }
+
           let sum = Object.keys(allPurchase)
             .filter((chain) => chain != chainId)
             .reduce((sum, chain) => sum.add(allPurchase[chain]), new BN(0))
           finalMaxCap = maxCap.sub(sum).toString()
         } else {
           let totalBalance = {}
+          let purchasePromises = []
+
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
-            let purchase = await ethCall(
-              MRC20Presale[chainId],
-              'totalBalance',
-              [],
-              ABI_totalBalance,
-              chainId
+            purchasePromises.push(
+              ethCall(
+                MRC20Presale[chainId],
+                'totalBalance',
+                [],
+                ABI_totalBalance,
+                chainId
+              )
             )
-            totalBalance = { ...totalBalance, [chainId]: new BN(purchase) }
+          }
+          let purchase = await Promise.all(purchasePromises)
+          for (let index = 0; index < Object.keys(chainMap).length; index++) {
+            const chainId = chainMap[Object.keys(chainMap)[index]]
+            totalBalance = {
+              ...totalBalance,
+              [chainId]: new BN(purchase[index])
+            }
           }
           let sum = Object.keys(totalBalance).reduce(
             (sum, chain) => sum.add(totalBalance[chain]),
