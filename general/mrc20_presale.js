@@ -144,16 +144,15 @@ module.exports = {
     switch (method) {
       case 'deposit':
         let { token, forAddress, amount, sign, chainId } = params
-        chainId = Number(chainId)
+        chainId = parseInt(chainId)
 
         if (!token) throw { message: 'Invalid token' }
-        if (!amount || parseInt(amount) === '0')
+        if (!amount || parseInt(amount) === 0)
           throw { message: 'Invalid deposit amount' }
-        if (typeof amount !== 'string')
-          throw { message: 'amount must be string' }
         if (!forAddress) throw { message: 'Invalid sender address' }
         if (!sign) throw { message: 'Invalid signature.' }
-        if (!chainId) throw { message: 'Invalid chainId' }
+        if (!chainId || !Object.values(chainMap).includes(chainId))
+          throw { message: 'Invalid chainId' }
         let allocationForAddress = allocation[forAddress]
         let currentTime = getTimestamp()
 
@@ -186,104 +185,89 @@ module.exports = {
           throw { message: 'Request signature mismatch' }
 
         let tokenPrice = toBaseUnit(token.price.toString(), 18)
-        let finalMaxCap
-        if (currentTime < PUBLIC_SALE) {
-          allocationForAddress = allocationForAddress[day]
-          let maxCap = new BN(
-            toBaseUnit(allocationForAddress.toString(), 18).toString()
-          )
-          let allPurchase = {}
-          let purchasePromises = []
 
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            purchasePromises.push(
-              ethCall(
-                MRC20Presale[chainId],
-                'roundBalances',
-                [forAddress, day],
-                ABI_roundBalances,
-                chainId
-              )
+        let baseToken = new BN(10).pow(new BN(token.decimals))
+        let usdAmount = new BN(amount).mul(tokenPrice).div(baseToken)
+        let usdMaxCap = IDO_PARTICIPANT_TOKENS * MUON_PRICE
+        let totalBalance = {}
+        let purchasePromises = []
+
+        for (let index = 0; index < Object.keys(chainMap).length; index++) {
+          const chainId = chainMap[Object.keys(chainMap)[index]]
+          purchasePromises.push(
+            ethCall(
+              MRC20Presale[chainId],
+              'totalBalance',
+              [],
+              ABI_totalBalance,
+              chainId
             )
-          }
-          let purchase = await Promise.all(purchasePromises)
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            allPurchase = { ...allPurchase, [chainId]: new BN(purchase[index]) }
-          }
-          let sum = Object.keys(allPurchase)
-            .filter((chain) => chain != chainId)
-            .reduce((sum, chain) => sum.add(allPurchase[chain]), new BN(0))
-          finalMaxCap = maxCap.sub(sum).toString()
-        } else if (currentTime >= PUBLIC_SALE && currentTime < PUBLIC_TIME) {
-          let maxCap = new BN(
-            toBaseUnit(PUBLIC_PHASE[day].toString(), 18).toString()
           )
-          let allPurchase = {}
-          let purchasePromises = []
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            purchasePromises.push(
-              ethCall(
-                MRC20Presale[chainId],
-                'roundBalances',
-                [forAddress, day],
-                ABI_roundBalances,
-                chainId
-              )
-            )
-          }
-          let purchase = await Promise.all(purchasePromises)
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            allPurchase = { ...allPurchase, [chainId]: new BN(purchase[index]) }
-          }
-
-          let sum = Object.keys(allPurchase)
-            .filter((chain) => chain != chainId)
-            .reduce((sum, chain) => sum.add(allPurchase[chain]), new BN(0))
-          finalMaxCap = maxCap.sub(sum).toString()
-        } else {
-          let totalBalance = {}
-          let purchasePromises = []
-
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            purchasePromises.push(
-              ethCall(
-                MRC20Presale[chainId],
-                'totalBalance',
-                [],
-                ABI_totalBalance,
-                chainId
-              )
-            )
-          }
-          let purchase = await Promise.all(purchasePromises)
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            totalBalance = {
-              ...totalBalance,
-              [chainId]: new BN(purchase[index])
-            }
-          }
-          let sum = Object.keys(totalBalance).reduce(
-            (sum, chain) => sum.add(totalBalance[chain]),
-            new BN(0)
-          )
-
-          let baseToken = new BN(10).pow(new BN(token.decimals))
-          let usdAmount = new BN(amount).mul(tokenPrice).div(baseToken)
-          let usdMaxCap = IDO_PARTICIPANT_TOKENS * MUON_PRICE
-          if (
-            Number(Web3.utils.fromWei(usdAmount, 'ether')) +
-              Number(Web3.utils.fromWei(sum, 'ether')) >
-            usdMaxCap
-          )
-            throw { message: 'Amount is not valid' }
-          finalMaxCap = toBaseUnit(usdMaxCap.toString(), 18).toString()
         }
+        let purchase = await Promise.all(purchasePromises)
+        for (let index = 0; index < Object.keys(chainMap).length; index++) {
+          const chainId = chainMap[Object.keys(chainMap)[index]]
+          totalBalance = {
+            ...totalBalance,
+            [chainId]: new BN(purchase[index])
+          }
+        }
+        let sum = Object.keys(totalBalance).reduce(
+          (sum, chain) => sum.add(totalBalance[chain]),
+          new BN(0)
+        )
+        if (
+          Number(Web3.utils.fromWei(usdAmount, 'ether')) +
+            Number(Web3.utils.fromWei(sum, 'ether')) >
+          usdMaxCap
+        )
+          throw { message: 'Amount is not valid' }
+
+        let finalMaxCap
+        if (currentTime >= PUBLIC_TIME) {
+          finalMaxCap = toBaseUnit(usdMaxCap.toString(), 18).toString()
+        } else {
+          let allPurchase = {}
+          let purchasePromises = []
+
+          for (let index = 0; index < Object.keys(chainMap).length; index++) {
+            const chainId = chainMap[Object.keys(chainMap)[index]]
+            purchasePromises.push(
+              ethCall(
+                MRC20Presale[chainId],
+                'roundBalances',
+                [forAddress, day],
+                ABI_roundBalances,
+                chainId
+              )
+            )
+          }
+
+          let purchase = await Promise.all(purchasePromises)
+
+          for (let index = 0; index < Object.keys(chainMap).length; index++) {
+            const chainId = chainMap[Object.keys(chainMap)[index]]
+            allPurchase = { ...allPurchase, [chainId]: new BN(purchase[index]) }
+          }
+
+          let sum = Object.keys(allPurchase)
+            .filter((chain) => chain != chainId)
+            .reduce((sum, chain) => sum.add(allPurchase[chain]), new BN(0))
+
+          if (currentTime < PUBLIC_SALE) {
+            allocationForAddress = allocationForAddress[day]
+            let maxCap = new BN(
+              toBaseUnit(allocationForAddress.toString(), 18).toString()
+            )
+            finalMaxCap = maxCap.sub(sum).toString()
+          } else {
+            let maxCap = new BN(
+              toBaseUnit(PUBLIC_PHASE[day].toString(), 18).toString()
+            )
+            finalMaxCap = maxCap.sub(sum).toString()
+          }
+        }
+
         const data = {
           token: token.address,
           forAddress,
