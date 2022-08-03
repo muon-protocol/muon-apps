@@ -49,7 +49,8 @@ module.exports = {
     },
 
     calculatePrice: function (prices) {
-
+        const average = prices.reduce((result, event) => result.add(new BN(event.price)), new BN(0)).div(prices.length)
+        return average
     },
 
     onRequest: async function (request) {
