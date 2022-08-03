@@ -1,10 +1,9 @@
-const { axios, soliditySha3, BN } = MuonAppUtils
+const { axios, soliditySha3, BN, Web3 } = MuonAppUtils
 
 const CHAINS = {
     mainnet: 1,
     fantom: 250,
 }
-
 
 module.exports = {
     APP_NAME: 'price_feed',
@@ -24,6 +23,23 @@ module.exports = {
         }
         return true
     },
+
+    getSeed: async function (chain, pairAddress, denomerator) {
+
+    },
+
+    getSyncEvents: async function (chain, seedBlockNumber, pairAddress, denomerator) {
+
+    },
+
+    createPrices: function (syncEvents) {
+
+    },
+
+    calculatePrice: function (prices) {
+
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -33,7 +49,20 @@ module.exports = {
         switch (method) {
             case 'signature':
 
-                return {}
+                let { chain, pairAddress, denomerator } = params
+                if (!chain) throw { message: 'Invalid chain' }
+                if (![0, 1].includes(denomerator)) throw { message: 'Invalid denomerator' }
+
+                const seed = await this.getSeed(chain, pairAddress, denomerator)
+                const syncEvents = await this.getSyncEvents(chain, seed.blockNumber, pairAddress, denomerator)
+                const prices = this.createPrices(syncEvents)
+                const price = this.calculatePrice(prices)
+
+                return {
+                    chain: chain,
+                    price: price,
+                    denomerator: denomerator
+                }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -48,7 +77,15 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                return soliditySha3([])
+                let { chain, price, denomerator } = result
+
+                return soliditySha3([
+                    { type: 'uint32', value: this.APP_ID },
+                    { type: 'uint256', value: price },
+                    { type: 'uint256', value: denomerator },
+                    { type: 'uint256', value: String(CHAINS[chain]) },
+                    { type: 'uint256', value: request.data.timestamp }
+                ])
 
             }
             default:
