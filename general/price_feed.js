@@ -32,8 +32,20 @@ module.exports = {
 
     },
 
-    createPrices: function (syncEvents) {
+    createPrices: function (seed, syncEvents) {
+        let prices = [seed]
+        blockNumber = seed.blockNumber + 1
+        lastPrice = seed.price
+        for (const event of syncEvents) {
+            if (event.blockNumber != blockNumber)
+                [...Array(event.blockNumber - blockNumber).fill(lastPrice)].forEach((price) => prices.push({ price: price, blockNumber: blockNumber++ }))
+            else
+                blockNumber++
 
+            prices.push(event)
+            lastPrice = seed.price
+        }
+        return prices
     },
 
     calculatePrice: function (prices) {
@@ -55,7 +67,7 @@ module.exports = {
 
                 const seed = await this.getSeed(chain, pairAddress, denomerator)
                 const syncEvents = await this.getSyncEvents(chain, seed.blockNumber, pairAddress, denomerator)
-                const prices = this.createPrices(syncEvents)
+                const prices = this.createPrices(seed, syncEvents)
                 const price = this.calculatePrice(prices)
 
                 return {
