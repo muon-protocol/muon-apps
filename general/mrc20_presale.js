@@ -3,6 +3,7 @@ const { toBaseUnit, soliditySha3, BN, recoverTypedMessage, Web3, ethCall } =
 const {
   ABI_roundBalances,
   ABI_totalBalance,
+  ABI_userInfo,
   allocation,
   IDO_PARTICIPANT_TOKENS,
   chainMap,
@@ -14,10 +15,12 @@ const {
 
 const getTimestamp = () => Date.now()
 
+const bn = (num) => new BN(num)
+
 // the reason start_time is /1000 to be like contract and if it needs to read from contract other formula work correct
 const START_TIME = 1659886200
 
-const PUBLIC_TIME = START_TIME * 1000 + 6 * 24 * 3600 * 1000
+const PUBLIC_TIME = START_TIME * 1000 + 5 * 24 * 3600 * 1000
 const PUBLIC_SALE = START_TIME * 1000 + 3 * 24 * 3600 * 1000
 
 function getTokens() {
@@ -42,9 +45,9 @@ const getDay = (time) =>
   (Math.floor((time - START_TIME * 1000) / (24 * 3600 * 1000)) + 1).toString()
 
 const MRC20Presale = {
-  [chainMap.ETH]: '0xe769eB67d024D53EE29DC688b430F6f35F5c2F8e',
-  [chainMap.BSC]: '0xf3FedAa069b4553046f4dafAf0Ec273036C5972b',
-  [chainMap.MATIC]: '0x10b09c7EE431C477267f85b27dA7C1D230715E51'
+  [chainMap.ETH]: '0x38451EbEDc60789D53A643f7EcA809BAa6fDbD37',
+  [chainMap.BSC]: '0x0A3971c81B9b68A6c65C58dff7da92857B334b41'
+  // [chainMap.MATIC]: '0x10b09c7EE431C477267f85b27dA7C1D230715E51'
 }
 
 module.exports = {
@@ -186,8 +189,8 @@ module.exports = {
 
         let tokenPrice = toBaseUnit(token.price.toString(), 18)
 
-        let baseToken = new BN(10).pow(new BN(token.decimals))
-        let usdAmount = new BN(amount).mul(tokenPrice).div(baseToken)
+        let baseToken = bn(10).pow(bn(token.decimals))
+        let usdAmount = bn(amount).mul(tokenPrice).div(baseToken)
         let usdMaxCap = IDO_PARTICIPANT_TOKENS * MUON_PRICE
         let totalBalance = {}
         let purchasePromises = []
@@ -197,24 +200,24 @@ module.exports = {
           purchasePromises.push(
             ethCall(
               MRC20Presale[chainId],
-              'totalBalance',
-              [],
-              ABI_totalBalance,
+              'userInfo',
+              [forAddress, 6],
+              ABI_userInfo,
               chainId
             )
           )
         }
-        let purchase = await Promise.all(purchasePromises)
+        let userInfo = await Promise.all(purchasePromises)
         for (let index = 0; index < Object.keys(chainMap).length; index++) {
           const chainId = chainMap[Object.keys(chainMap)[index]]
           totalBalance = {
             ...totalBalance,
-            [chainId]: new BN(purchase[index])
+            [chainId]: bn(userInfo[index]['_totalBalance'])
           }
         }
         let sum = Object.keys(totalBalance).reduce(
           (sum, chain) => sum.add(totalBalance[chain]),
-          new BN(0)
+          bn(0)
         )
         if (
           Number(Web3.utils.fromWei(usdAmount, 'ether')) +
@@ -228,42 +231,66 @@ module.exports = {
           finalMaxCap = toBaseUnit(usdMaxCap.toString(), 18).toString()
         } else {
           let allPurchase = {}
-          let purchasePromises = []
+          let sumUsed = bn(0)
 
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
-            purchasePromises.push(
-              ethCall(
-                MRC20Presale[chainId],
-                'roundBalances',
-                [forAddress, day],
-                ABI_roundBalances,
-                chainId
-              )
-            )
+            allPurchase = {
+              ...allPurchase,
+              [chainId]: bn(userInfo[index]['_roundBalances'][day - 1])
+            }
+            let amount = 0
+
+            switch (true) {
+              case day < 4:
+                amount = Web3.utils.fromWei(
+                  userInfo[index]['_userBalance'],
+                  'ether'
+                )
+                break
+
+              case day === 4:
+                amount = Web3.utils.fromWei(
+                  userInfo[index]['_roundBalances'][day - 1],
+                  'ether'
+                )
+
+                break
+              case day === 5:
+                amount = bn(
+                  Web3.utils.fromWei(
+                    userInfo[index]['_roundBalances'][day - 2],
+                    'ether'
+                  )
+                ).add(
+                  bn(
+                    Web3.utils.fromWei(
+                      userInfo[index]['_roundBalances'][day - 1],
+                      'ether'
+                    )
+                  )
+                )
+                break
+
+              default:
+                break
+            }
+
+            sumUsed = bn(amount).add(sumUsed)
           }
-
-          let purchase = await Promise.all(purchasePromises)
-
-          for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
-            allPurchase = { ...allPurchase, [chainId]: new BN(purchase[index]) }
-          }
-
           let sum = Object.keys(allPurchase)
             .filter((chain) => chain != chainId)
-            .reduce((sum, chain) => sum.add(allPurchase[chain]), new BN(0))
+            .reduce((sum, chain) => sum.add(allPurchase[chain]), bn(0))
 
           if (currentTime < PUBLIC_SALE) {
-            allocationForAddress = allocationForAddress[day]
-            let maxCap = new BN(
+            allocationForAddress = bn(allocationForAddress[day]).sub(sumUsed)
+            let maxCap = bn(
               toBaseUnit(allocationForAddress.toString(), 18).toString()
             )
             finalMaxCap = maxCap.sub(sum).toString()
           } else {
-            let maxCap = new BN(
-              toBaseUnit(PUBLIC_PHASE[day].toString(), 18).toString()
-            )
+            let allocation = bn(PUBLIC_PHASE[day]).sub(sumUsed)
+            let maxCap = bn(toBaseUnit(allocation.toString(), 18).toString())
             finalMaxCap = maxCap.sub(sum).toString()
           }
         }
