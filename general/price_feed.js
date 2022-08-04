@@ -1,9 +1,25 @@
-const { axios, soliditySha3, BN, Web3 } = MuonAppUtils
+const { soliditySha3, BN, Web3 } = MuonAppUtils
+
+const HttpProvider = Web3.providers.HttpProvider
 
 const CHAINS = {
     mainnet: 1,
     fantom: 250,
 }
+
+const networksWeb3 = {
+    1: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_ETH)),
+    250: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM)),
+}
+
+const networksBlockIn30Min = {
+    1: 146,
+    250: 1650
+}
+
+const Q112 = new BN(2).pow(new BN(112))
+
+const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
 
 module.exports = {
     APP_NAME: 'price_feed',
@@ -24,7 +40,14 @@ module.exports = {
         return true
     },
 
-    getSeed: async function (chain, pairAddress, denomerator) {
+    getSeed: async function (chainId, pairAddress) {
+        const w3 = networksWeb3[chainId]
+        const seedBlockNumber = (await w3.eth.getBlock("latest")).number - networksBlockIn30Min[chainId]
+        const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+        const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
+        const price0 = (new BN(_reserve1)).mul(Q112).div(new BN(_reserve0))
+        const price1 = (new BN(_reserve0)).mul(Q112).div(new BN(_reserve1))
+        return { price0: price0, price1: price1, blockNumber: seedBlockNumber }
 
     },
 
