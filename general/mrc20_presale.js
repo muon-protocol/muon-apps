@@ -1,8 +1,6 @@
 const { toBaseUnit, soliditySha3, BN, recoverTypedMessage, Web3, ethCall } =
   MuonAppUtils
 const {
-  ABI_roundBalances,
-  ABI_totalBalance,
   ABI_userInfo,
   allocation,
   IDO_PARTICIPANT_TOKENS,
@@ -85,7 +83,7 @@ module.exports = {
         message: `Your address is locked. Please wait.`,
         lock: true,
         lockType: LockType.COOL_DOWN,
-        lockTime: 1 * 60,
+        lockTime: 5 * 60,
         expireAt: lock.expireAt,
         PUBLIC_TIME,
         PUBLIC_SALE,
@@ -124,13 +122,13 @@ module.exports = {
           throw {
             message: {
               message: `Your address is locked. Please wait.`,
-              lockTime: 1 * 60,
+              lockTime: 5 * 60,
               expireAt: lock.expireAt,
               day: getDay(currentTime)
             }
           }
         }
-        await this.writeNodeMem(memory, 1 * 60)
+        await this.writeNodeMem(memory, 5 * 60)
         return
 
       default:
@@ -231,39 +229,51 @@ module.exports = {
           finalMaxCap = toBaseUnit(usdMaxCap.toString(), 18).toString()
         } else {
           let allPurchase = {}
-          // let sumUsed = bn(0)
 
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
-            const chainId = chainMap[Object.keys(chainMap)[index]]
+            const chain = chainMap[Object.keys(chainMap)[index]]
+
+            let amount = bn(0)
+
+            switch (true) {
+              case day < 4:
+                amount =
+                  chain != chainId
+                    ? userInfo[index]['_userBalance']
+                    : bn(userInfo[index]['_userBalance']).sub(
+                        bn(userInfo[index]['_roundBalances'][day - 1])
+                      )
+                break
+              case day === 4:
+                amount =
+                  chain != chainId
+                    ? userInfo[index]['_roundBalances'][day - 1]
+                    : 0
+                break
+              case day === 5:
+                amount =
+                  chain != chainId
+                    ? bn(userInfo[index]['_roundBalances'][day - 2]).add(
+                        bn(userInfo[index]['_roundBalances'][day - 1])
+                      )
+                    : bn(userInfo[index]['_roundBalances'][day - 2])
+                        .add(bn(userInfo[index]['_roundBalances'][day - 1]))
+                        .sub(bn(userInfo[index]['_roundBalances'][day - 1]))
+                break
+              default:
+                break
+            }
+
             allPurchase = {
               ...allPurchase,
-              [chainId]: bn(userInfo[index]['_roundBalances'][day - 1])
+              [chain]: bn(amount)
             }
-            // let amount = bn(0)
-
-            // switch (true) {
-            //   case day < 4:
-            //     amount = userInfo[index]['_userBalance']
-            //     break
-            //   case day === 4:
-            //     amount = userInfo[index]['_roundBalances'][day - 1]
-            //     break
-            //   case day === 5:
-            //     amount = bn(userInfo[index]['_roundBalances'][day - 2]).add(
-            //       bn(userInfo[index]['_roundBalances'][day - 1])
-            //     )
-            //     break
-            //   default:
-            //     break
-            // }
-
-            // sumUsed = bn(Web3.utils.fromWei(amount)).add(sumUsed)
           }
-          // console.log({ sumUsed: sumUsed.toString() })
-          let sum = Object.keys(allPurchase)
-            .filter((chain) => chain != chainId)
-            .reduce((sum, chain) => sum.add(allPurchase[chain]), bn(0))
-          // console.log({ sum: sum.toString() })
+
+          let sum = Object.keys(allPurchase).reduce(
+            (sum, chain) => sum.add(allPurchase[chain]),
+            bn(0)
+          )
           let allocation =
             currentTime < PUBLIC_SALE
               ? allocationForAddress[day]
@@ -304,6 +314,7 @@ module.exports = {
     switch (method) {
       case 'deposit':
         let { token, day, forAddress, extraParameters } = result
+
         return soliditySha3([
           { type: 'uint32', value: this.APP_ID },
           { type: 'address', value: token },
