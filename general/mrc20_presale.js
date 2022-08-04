@@ -42,7 +42,7 @@ function getTokens() {
 }
 
 const getDay = (time) =>
-  (Math.floor((time - START_TIME * 1000) / (24 * 3600 * 1000)) + 1).toString()
+  Math.floor((time - START_TIME * 1000) / (24 * 3600 * 1000)) + 1
 
 const MRC20Presale = {
   [chainMap.ETH]: '0x38451EbEDc60789D53A643f7EcA809BAa6fDbD37',
@@ -85,7 +85,7 @@ module.exports = {
         message: `Your address is locked. Please wait.`,
         lock: true,
         lockType: LockType.COOL_DOWN,
-        lockTime: 5 * 60,
+        lockTime: 1 * 60,
         expireAt: lock.expireAt,
         PUBLIC_TIME,
         PUBLIC_SALE,
@@ -124,13 +124,13 @@ module.exports = {
           throw {
             message: {
               message: `Your address is locked. Please wait.`,
-              lockTime: 5 * 60,
+              lockTime: 1 * 60,
               expireAt: lock.expireAt,
               day: getDay(currentTime)
             }
           }
         }
-        await this.writeNodeMem(memory, 5 * 60)
+        await this.writeNodeMem(memory, 1 * 60)
         return
 
       default:
@@ -243,56 +243,35 @@ module.exports = {
 
             switch (true) {
               case day < 4:
-                amount = Web3.utils.fromWei(
-                  userInfo[index]['_userBalance'],
-                  'ether'
-                )
+                amount = userInfo[index]['_userBalance']
                 break
-
               case day === 4:
-                amount = Web3.utils.fromWei(
-                  userInfo[index]['_roundBalances'][day - 1],
-                  'ether'
-                )
-
+                amount = userInfo[index]['_roundBalances'][day - 1]
                 break
               case day === 5:
-                amount = bn(
-                  Web3.utils.fromWei(
-                    userInfo[index]['_roundBalances'][day - 2],
-                    'ether'
-                  )
-                ).add(
-                  bn(
-                    Web3.utils.fromWei(
-                      userInfo[index]['_roundBalances'][day - 1],
-                      'ether'
-                    )
-                  )
+                amount = bn(userInfo[index]['_roundBalances'][day - 2]).add(
+                  bn(userInfo[index]['_roundBalances'][day - 1])
                 )
                 break
-
               default:
                 break
             }
 
-            sumUsed = bn(amount).add(sumUsed)
+            sumUsed = bn(Web3.utils.fromWei(amount)).add(sumUsed)
           }
+          console.log({ sumUsed: sumUsed.toString() })
           let sum = Object.keys(allPurchase)
             .filter((chain) => chain != chainId)
             .reduce((sum, chain) => sum.add(allPurchase[chain]), bn(0))
 
-          if (currentTime < PUBLIC_SALE) {
-            allocationForAddress = bn(allocationForAddress[day]).sub(sumUsed)
-            let maxCap = bn(
-              toBaseUnit(allocationForAddress.toString(), 18).toString()
-            )
-            finalMaxCap = maxCap.sub(sum).toString()
-          } else {
-            let allocation = bn(PUBLIC_PHASE[day]).sub(sumUsed)
-            let maxCap = bn(toBaseUnit(allocation.toString(), 18).toString())
-            finalMaxCap = maxCap.sub(sum).toString()
-          }
+          let allocation = bn(
+            currentTime < PUBLIC_SALE
+              ? allocationForAddress[day]
+              : PUBLIC_PHASE[day]
+          ).sub(sumUsed)
+
+          let maxCap = bn(toBaseUnit(allocation.toString(), 18).toString())
+          finalMaxCap = maxCap.sub(sum).toString()
         }
 
         const data = {
