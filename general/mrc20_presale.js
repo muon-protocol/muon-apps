@@ -231,7 +231,7 @@ module.exports = {
           finalMaxCap = toBaseUnit(usdMaxCap.toString(), 18).toString()
         } else {
           let allPurchase = {}
-          let sumUsed = bn(0)
+          // let sumUsed = bn(0)
 
           for (let index = 0; index < Object.keys(chainMap).length; index++) {
             const chainId = chainMap[Object.keys(chainMap)[index]]
@@ -239,36 +239,35 @@ module.exports = {
               ...allPurchase,
               [chainId]: bn(userInfo[index]['_roundBalances'][day - 1])
             }
-            let amount = 0
+            // let amount = bn(0)
 
-            switch (true) {
-              case day < 4:
-                amount = userInfo[index]['_userBalance']
-                break
-              case day === 4:
-                amount = userInfo[index]['_roundBalances'][day - 1]
-                break
-              case day === 5:
-                amount = bn(userInfo[index]['_roundBalances'][day - 2]).add(
-                  bn(userInfo[index]['_roundBalances'][day - 1])
-                )
-                break
-              default:
-                break
-            }
+            // switch (true) {
+            //   case day < 4:
+            //     amount = userInfo[index]['_userBalance']
+            //     break
+            //   case day === 4:
+            //     amount = userInfo[index]['_roundBalances'][day - 1]
+            //     break
+            //   case day === 5:
+            //     amount = bn(userInfo[index]['_roundBalances'][day - 2]).add(
+            //       bn(userInfo[index]['_roundBalances'][day - 1])
+            //     )
+            //     break
+            //   default:
+            //     break
+            // }
 
-            sumUsed = bn(Web3.utils.fromWei(amount)).add(sumUsed)
+            // sumUsed = bn(Web3.utils.fromWei(amount)).add(sumUsed)
           }
-          console.log({ sumUsed: sumUsed.toString() })
+          // console.log({ sumUsed: sumUsed.toString() })
           let sum = Object.keys(allPurchase)
             .filter((chain) => chain != chainId)
             .reduce((sum, chain) => sum.add(allPurchase[chain]), bn(0))
-
-          let allocation = bn(
+          // console.log({ sum: sum.toString() })
+          let allocation =
             currentTime < PUBLIC_SALE
               ? allocationForAddress[day]
               : PUBLIC_PHASE[day]
-          ).sub(sumUsed)
 
           let maxCap = bn(toBaseUnit(allocation.toString(), 18).toString())
           finalMaxCap = maxCap.sub(sum).toString()
