@@ -75,6 +75,7 @@ module.exports = {
             else
                 throw { message: 'Invalid event order' }
         }
+        [...Array(blockNumber - seed.blockNumber + 1)].forEach(() => prices.push({ price0: seed.price0, price1: seed.price1, blockNumber: blockNumber-- }))
         return prices
     },
 
