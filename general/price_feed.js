@@ -56,8 +56,15 @@ module.exports = {
 
     },
 
-    getSyncEvents: async function (chain, seedBlockNumber, pairAddress, denomerator) {
-
+    getSyncEvents: async function (chainId, seedBlockNumber, pairAddress) {
+        const w3 = networksWeb3[chainId]
+        const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+        const options = {
+            fromBlock: seedBlockNumber + 1,
+            toBlock: seedBlockNumber + networksBlockIn30Min[chainId]
+        }
+        const events = await pair.getPastEvents("Sync", options)
+        return events
     },
 
     createPrices: function (chainId, seed, syncEvents) {
