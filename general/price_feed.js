@@ -62,18 +62,18 @@ module.exports = {
 
     createPrices: function (chainId, seed, syncEvents) {
         let prices = []
-        let blockNumber = seed.blockNumber
-        let lastPrice0 = seed.price0
-        let lastPrice1 = seed.price1
-        for (const event of syncEvents) {
-            if (event.blockNumber != blockNumber)
-                [...Array(event.blockNumber - blockNumber).fill({ price0: lastPrice0, price1: lastPrice1 })].forEach((price) => prices.push({ price0: price.price0, price1: price.price1, blockNumber: blockNumber++ }))
+        let blockNumber = seed.blockNumber + networksBlockIn30Min[chainId]
+        for (const event of syncEvents.reverse()) {
+            if (event.blockNumber < blockNumber || event.blockNumber == blockNumber) {
+                let { price0, price1 } = this.calculateInstantPrice(event.returnValues.reserve0, event.returnValues.reserve1);
+                [...Array(blockNumber - event.blockNumber)].forEach(() => prices.push({ price0: price0, price1: price1, blockNumber: blockNumber-- }))
+                prices.push({ price0: price0, price1: price1, blockNumber: event.blockNumber })
+                blockNumber--
+            }
+            else if (event.blockNumber == blockNumber + 1)
+                continue
             else
-                blockNumber++
-
-            prices.push(event)
-            lastPrice0 = event.price0
-            lastPrice1 = event.price1
+                throw { message: 'Invalid event order' }
         }
         return prices
     },
