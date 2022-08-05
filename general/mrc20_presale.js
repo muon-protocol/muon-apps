@@ -16,7 +16,7 @@ const getTimestamp = () => Date.now()
 const bn = (num) => new BN(num)
 
 // the reason start_time is /1000 to be like contract and if it needs to read from contract other formula work correct
-const START_TIME = 1659547199
+const START_TIME = 1659886200
 
 const PUBLIC_TIME = START_TIME * 1000 + 5 * 24 * 3600 * 1000
 const PUBLIC_SALE = START_TIME * 1000 + 3 * 24 * 3600 * 1000
