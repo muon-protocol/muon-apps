@@ -44,8 +44,8 @@ const getDay = (time) =>
 
 const MRC20Presale = {
   [chainMap.ETH]: '0x38451EbEDc60789D53A643f7EcA809BAa6fDbD37',
-  [chainMap.BSC]: '0x0A3971c81B9b68A6c65C58dff7da92857B334b41'
-  // [chainMap.MATIC]: '0x10b09c7EE431C477267f85b27dA7C1D230715E51'
+  [chainMap.BSC]: '0x0A3971c81B9b68A6c65C58dff7da92857B334b41',
+  [chainMap.MATIC]: '0x12F6cF9ebfC7c94E14488c7eeBa9d0D7808737B4'
 }
 
 module.exports = {

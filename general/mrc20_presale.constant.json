@@ -14451,7 +14451,8 @@
   "MUON_PRICE": 0.02,
   "chainMap": {
     "ETH": 4,
-    "BSC": 97
+    "BSC": 97,
+    "MATIC": 80001
   },
   "LockType": {
     "ALLOCATION": "ALLOCATION",
