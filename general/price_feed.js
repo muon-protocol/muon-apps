@@ -55,7 +55,7 @@ module.exports = {
 
     },
 
-    createPrices: function (seed, syncEvents) {
+    createPrices: function (chainId, seed, syncEvents) {
         let prices = []
         let blockNumber = seed.blockNumber
         let lastPrice0 = seed.price0
@@ -95,7 +95,7 @@ module.exports = {
 
                 const seed = await this.getSeed(chainId, pairAddress)
                 const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
-                const prices = this.createPrices(seed, syncEvents)
+                const prices = this.createPrices(chainId, seed, syncEvents)
                 const price = this.calculateAveragePrice(prices)
 
                 return {
