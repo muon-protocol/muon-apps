@@ -40,13 +40,18 @@ module.exports = {
         return true
     },
 
+    calculateInstantPrice: function (reserve0, reserve1) {
+        const price0 = (new BN(reserve1)).mul(Q112).div(new BN(reserve0))
+        const price1 = (new BN(reserve0)).mul(Q112).div(new BN(reserve1))
+        return { price0, price1 }
+    },
+
     getSeed: async function (chainId, pairAddress) {
         const w3 = networksWeb3[chainId]
         const seedBlockNumber = (await w3.eth.getBlock("latest")).number - networksBlockIn30Min[chainId]
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
-        const price0 = (new BN(_reserve1)).mul(Q112).div(new BN(_reserve0))
-        const price1 = (new BN(_reserve0)).mul(Q112).div(new BN(_reserve1))
+        const { price0, price1 } = this.calculateInstantPrice(_reserve0, _reserve1)
         return { price0: price0, price1: price1, blockNumber: seedBlockNumber }
 
     },
