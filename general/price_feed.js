@@ -73,7 +73,7 @@ module.exports = {
         return prices
     },
 
-    calculatePrice: function (prices) {
+    calculateAveragePrice: function (prices) {
         const sumPrice = prices.reduce((result, event) => { return { price0: result.price0.add(new BN(event.price0)), price1: result.price1.add(new BN(event.price1)) } }, { price0: new BN(0), price1: new BN(0) })
         const averagePrice = { price0: sumPrice.price0.div(new BN(prices.length)), price1: sumPrice.price1.div(new BN(prices.length)) }
         return averagePrice
@@ -96,7 +96,7 @@ module.exports = {
                 const seed = await this.getSeed(chainId, pairAddress)
                 const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
                 const prices = this.createPrices(seed, syncEvents)
-                const price = this.calculatePrice(prices)
+                const price = this.calculateAveragePrice(prices)
 
                 return {
                     chain: chain,
