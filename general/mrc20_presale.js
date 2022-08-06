@@ -102,6 +102,54 @@ module.exports = {
     }
   },
 
+  validateDeposit: async function(params) {
+    let { token, forAddress, amount, sign, chainId } = params
+
+    chainId = parseInt(chainId)
+
+    if (!token)
+      throw { message: 'Invalid token' }
+    if (!amount || parseInt(amount) === 0)
+      throw { message: 'Invalid deposit amount' }
+    if (!forAddress)
+      throw { message: 'Invalid sender address' }
+    if (!sign)
+      throw { message: 'Invalid signature.' }
+    if (!chainId || !Object.values(chainMap).includes(chainId))
+      throw { message: 'Invalid chainId' }
+
+    let typedData = {
+      types: {
+        EIP712Domain: [{ name: 'name', type: 'string' }],
+        Message: [{ type: 'address', name: 'forAddress' }]
+      },
+      domain: { name: 'MRC20 Presale' },
+      primaryType: 'Message',
+      message: { forAddress: forAddress }
+    }
+
+    let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
+    if (signer.toLowerCase() !== forAddress.toLowerCase())
+      throw { message: 'Request signature mismatch' }
+
+    let allocationForAddress = allocation[forAddress]
+    let currentTime = getTimestamp()
+
+    if (allocationForAddress === undefined && currentTime < PUBLIC_SALE)
+      throw { message: 'Allocation is 0 for your address.' }
+    const day = getDay(currentTime)
+    if (day <= 0)
+      throw { message: 'No Active Sale' }
+
+    let tokenList = await getTokens()
+    if (!Object.keys(tokenList).includes(token.toLowerCase()))
+      throw { message: 'Invalid token.' }
+
+    token = tokenList[token.toLowerCase()]
+    if (!token.chains.includes(chainId))
+      throw { message: 'Token and chain is not matched.' }
+  },
+
   onArrive: async function (request) {
     const {
       method,
@@ -111,6 +159,7 @@ module.exports = {
       case 'deposit':
         const { forAddress } = params
         let currentTime = getTimestamp()
+        await this.validateDeposit(params);
 
         let memory = [
           { type: 'uint256', name: DEPOSIT_LOCK, value: forAddress }
@@ -145,47 +194,14 @@ module.exports = {
 
     switch (method) {
       case 'deposit':
-        let { token, forAddress, amount, sign, chainId } = params
+        let { token, forAddress, amount, chainId } = params
         chainId = parseInt(chainId)
 
-        if (!token) throw { message: 'Invalid token' }
-        if (!amount || parseInt(amount) === 0)
-          throw { message: 'Invalid deposit amount' }
-        if (!forAddress) throw { message: 'Invalid sender address' }
-        if (!sign) throw { message: 'Invalid signature.' }
-        if (!chainId || !Object.values(chainMap).includes(chainId))
-          throw { message: 'Invalid chainId' }
         let allocationForAddress = allocation[forAddress]
         let currentTime = getTimestamp()
-
-        if (allocationForAddress === undefined && currentTime < PUBLIC_SALE)
-          throw { message: 'Allocation is 0 for your address.' }
         const day = getDay(currentTime)
-        if (day <= 0) throw { message: 'No Active Sale' }
-
         let tokenList = await getTokens()
-        if (!Object.keys(tokenList).includes(token.toLowerCase()))
-          throw { message: 'Invalid token.' }
-
         token = tokenList[token.toLowerCase()]
-        if (!token.chains.includes(chainId))
-          throw { message: 'Token and chain is not matched.' }
-
-        let typedData = {
-          types: {
-            EIP712Domain: [{ name: 'name', type: 'string' }],
-            Message: [{ type: 'address', name: 'forAddress' }]
-          },
-          domain: { name: 'MRC20 Presale' },
-          primaryType: 'Message',
-          message: { forAddress: forAddress }
-        }
-
-        let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
-
-        if (signer.toLowerCase() !== forAddress.toLowerCase())
-          throw { message: 'Request signature mismatch' }
-
         let tokenPrice = toBaseUnit(token.price.toString(), 18)
 
         let baseToken = bn(10).pow(bn(token.decimals))
