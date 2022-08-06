@@ -1,4 +1,4 @@
-const { soliditySha3, BN, Web3 } = MuonAppUtils
+const { toBaseUnit, soliditySha3, BN, Web3 } = MuonAppUtils
 
 const HttpProvider = Web3.providers.HttpProvider
 
@@ -17,6 +17,7 @@ const networksBlockIn30Min = {
     250: 1650
 }
 
+const PRICE_TOLERANCE = '0.0005'
 const Q112 = new BN(2).pow(new BN(112))
 
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
@@ -133,11 +134,25 @@ module.exports = {
 
                 let { chain, pairAddress, price0, price1 } = result
 
+                let priceTolerancesStatus = []
+                let [expectedPrice0, expectedPrice1] = [request.data.result.price0, request.data.result.price1];
+                [
+                    { price: price0, expectedPrice: expectedPrice0 },
+                    { price: price1, expectedPrice: expectedPrice1 }
+                ].forEach(
+                    (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice))
+                )
+                if (
+                    priceTolerancesStatus.includes(false)
+                ) {
+                    throw { message: 'Price threshold exceeded' }
+                }
+
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
                     { type: 'address', value: pairAddress },
-                    { type: 'uint256', value: price0 },
-                    { type: 'uint256', value: price1 },
+                    { type: 'uint256', value: expectedPrice0 },
+                    { type: 'uint256', value: expectedPrice1 },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp }
                 ])
