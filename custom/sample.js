@@ -61,6 +61,23 @@ module.exports = {
   },
 
   /**
+   * Run on all nodes before onRequest
+   * on the gateway node runs before onArrive
+   * @param request
+   * @returns {Promise<void>}
+   */
+  validateRequest: async function(request) {
+    const {method} = request
+    switch (method) {
+      case "test-method": {
+        /**
+         * Do your method validation here
+         */
+      }
+    }
+  },
+
+  /**
    * Request arrival hook
    * Runs only on the first node
    *

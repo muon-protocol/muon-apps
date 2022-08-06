@@ -146,6 +146,15 @@ module.exports = {
       throw { message: 'Token and chain is not matched.' }
   },
 
+  validateRequest: async function(request) {
+    const {method} = request
+    switch (method) {
+      case "deposit": {
+        await this.validateDeposit(request.data.params)
+      }
+    }
+  },
+
   onArrive: async function (request) {
     const {
       method,
@@ -155,7 +164,6 @@ module.exports = {
       case 'deposit':
         const { forAddress } = params
         let currentTime = getTimestamp()
-        await this.validateDeposit(params)
 
         let memory = [
           { type: 'uint256', name: DEPOSIT_LOCK, value: forAddress }
