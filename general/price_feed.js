@@ -42,6 +42,8 @@ module.exports = {
     },
 
     calculateInstantPrice: function (reserve0, reserve1) {
+        // multiply reserveA into Q112 for precision in division 
+        // reserveA * (2 ** 112) / reserverB
         const price0 = (new BN(reserve1)).mul(Q112).div(new BN(reserve0))
         const price1 = (new BN(reserve0)).mul(Q112).div(new BN(reserve1))
         return { price0, price1 }
@@ -71,18 +73,28 @@ module.exports = {
     createPrices: function (chainId, seed, syncEvents) {
         let prices = []
         let blockNumber = seed.blockNumber + networksBlockIn30Min[chainId]
+        // loop through sync events in reverse order to ignore multiple sync events in the same block easily
+        // fill the prices array from blockNumber to seedBlockNumber(blocks mined in 30 mins ago)
         for (const event of syncEvents.reverse()) {
+            // push the block price after filling the gap between two sync events
             if (event.blockNumber < blockNumber || event.blockNumber == blockNumber) {
+                // calculate price in the block of event
                 let { price0, price1 } = this.calculateInstantPrice(event.returnValues.reserve0, event.returnValues.reserve1);
+                // consider a price for each block between two sync events with block difference more than one 
+                // use current event for considered price
                 [...Array(blockNumber - event.blockNumber)].forEach(() => prices.push({ price0: price0, price1: price1, blockNumber: blockNumber-- }))
+                // push price in the block of event
                 prices.push({ price0: price0, price1: price1, blockNumber: event.blockNumber })
                 blockNumber--
             }
+            // ignore multiple sync events in one block
             else if (event.blockNumber == blockNumber + 1)
                 continue
             else
                 throw { message: 'Invalid event order' }
         }
+        // consider a price for blocks between seed and first sync event
+        // use seed price as considered price
         [...Array(blockNumber - seed.blockNumber + 1)].forEach(() => prices.push({ price0: seed.price0, price1: seed.price1, blockNumber: blockNumber-- }))
         return prices
     },
@@ -107,9 +119,13 @@ module.exports = {
 
                 const chainId = CHAINS[chain]
 
+                // get price of 30 mins ago
                 const seed = await this.getSeed(chainId, pairAddress)
+                // get sync events that are less than 30 mins old 
                 const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
+                // create an array contains a price for each block mined 30 mins ago
                 const prices = this.createPrices(chainId, seed, syncEvents)
+                // calculate the average price
                 const price = this.calculateAveragePrice(prices)
 
                 return {
@@ -135,13 +151,16 @@ module.exports = {
                 let { chain, pairAddress, price0, price1 } = result
 
                 let priceTolerancesStatus = []
+                // node1 result
                 let [expectedPrice0, expectedPrice1] = [request.data.result.price0, request.data.result.price1];
+                // check price difference between current node and node1
                 [
                     { price: price0, expectedPrice: expectedPrice0 },
                     { price: price1, expectedPrice: expectedPrice1 }
                 ].forEach(
                     (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice))
                 )
+                // throw error in case of high price difference between current node and node1
                 if (
                     priceTolerancesStatus.includes(false)
                 ) {
