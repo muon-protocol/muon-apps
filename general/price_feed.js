@@ -77,7 +77,7 @@ module.exports = {
         // fill the prices array from blockNumber to seedBlockNumber(blocks mined in 30 mins ago)
         for (const event of syncEvents.reverse()) {
             // push the block price after filling the gap between two sync events
-            if (event.blockNumber < blockNumber || event.blockNumber == blockNumber) {
+            if (event.blockNumber <= blockNumber) {
                 // calculate price in the block of event
                 let { price0, price1 } = this.calculateInstantPrice(event.returnValues.reserve0, event.returnValues.reserve1);
                 // consider a price for each block between two sync events with block difference more than one 
