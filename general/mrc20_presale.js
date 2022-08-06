@@ -16,7 +16,7 @@ const getTimestamp = () => Date.now()
 const bn = (num) => new BN(num)
 
 // the reason start_time is /1000 to be like contract and if it needs to read from contract other formula work correct
-const START_TIME = 1659547199;
+const START_TIME = 1659547199
 //mainnet: 1659886200
 
 const PUBLIC_TIME = START_TIME * 1000 + 5 * 24 * 3600 * 1000
@@ -102,19 +102,16 @@ module.exports = {
     }
   },
 
-  validateDeposit: async function(params) {
+  validateDeposit: async function (params) {
     let { token, forAddress, amount, sign, chainId } = params
 
     chainId = parseInt(chainId)
 
-    if (!token)
-      throw { message: 'Invalid token' }
+    if (!token) throw { message: 'Invalid token' }
     if (!amount || parseInt(amount) === 0)
       throw { message: 'Invalid deposit amount' }
-    if (!forAddress)
-      throw { message: 'Invalid sender address' }
-    if (!sign)
-      throw { message: 'Invalid signature.' }
+    if (!forAddress) throw { message: 'Invalid sender address' }
+    if (!sign) throw { message: 'Invalid signature.' }
     if (!chainId || !Object.values(chainMap).includes(chainId))
       throw { message: 'Invalid chainId' }
 
@@ -138,8 +135,7 @@ module.exports = {
     if (allocationForAddress === undefined && currentTime < PUBLIC_SALE)
       throw { message: 'Allocation is 0 for your address.' }
     const day = getDay(currentTime)
-    if (day <= 0)
-      throw { message: 'No Active Sale' }
+    if (day <= 0) throw { message: 'No Active Sale' }
 
     let tokenList = await getTokens()
     if (!Object.keys(tokenList).includes(token.toLowerCase()))
@@ -159,7 +155,7 @@ module.exports = {
       case 'deposit':
         const { forAddress } = params
         let currentTime = getTimestamp()
-        await this.validateDeposit(params);
+        await this.validateDeposit(params)
 
         let memory = [
           { type: 'uint256', name: DEPOSIT_LOCK, value: forAddress }
@@ -299,6 +295,8 @@ module.exports = {
           let maxCap = bn(toBaseUnit(allocation.toString(), 18).toString())
           finalMaxCap = maxCap.sub(sum).toString()
         }
+
+        if (finalMaxCap <= 0) throw { message: 'Final maxCap is not valid' }
 
         const data = {
           token: token.address,
