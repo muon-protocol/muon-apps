@@ -73,6 +73,12 @@ module.exports = {
       case 'lock':
         let {user} = params;
 
+        /**
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         *  Do all request validations here to prevent incorrect lock. *
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         */
+
         // looking for data in memory
         let lock = await this.readNodeMem({"data.name": LOCK_NAME, "data.value": user})
         if (lock) {
