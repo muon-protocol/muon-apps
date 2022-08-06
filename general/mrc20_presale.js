@@ -16,7 +16,7 @@ const getTimestamp = () => Date.now()
 const bn = (num) => new BN(num)
 
 // the reason start_time is /1000 to be like contract and if it needs to read from contract other formula work correct
-const START_TIME = 1659547199
+const START_TIME = 1659886200
 //mainnet: 1659886200
 
 const PUBLIC_TIME = START_TIME * 1000 + 5 * 24 * 3600 * 1000
@@ -30,12 +30,53 @@ function getTokens() {
       price: 1,
       chains: [97, 4]
     },
-
     ert: {
       decimals: 18,
       address: '0x701048911b1f1121E33834d3633227A954978d53',
       price: 1,
       chains: [80001]
+    },
+    usdc: {
+      decimals: 6,
+      address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      price: 1,
+      chains: [chainMap.ETH]
+    },
+    busd: {
+      decimals: 18,
+      address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
+      price: 1,
+      chains: [chainMap.BSC]
+    },
+    matic_usdc: {
+      decimals: 6,
+      address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+      price: 1,
+      chains: [chainMap.MATIC]
+    },
+    ftm_usdc: {
+      decimals: 6,
+      address: '0x04068DA6C83AFCFA0e13ba15A6696662335D5B75',
+      price: 1,
+      chains: [chainMap.FTM]
+    },
+    arb_usdc: {
+      decimals: 6,
+      address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+      price: 1,
+      chains: [chainMap.ARBITRUM]
+    },
+    avax_usdc: {
+      decimals: 6,
+      address: '0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664',
+      price: 1,
+      chains: [chainMap.AVAX]
+    },
+    op_usdc: {
+      decimals: 6,
+      address: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+      price: 1,
+      chains: [chainMap.OPTIMISM]
     }
   }
 }
@@ -44,9 +85,13 @@ const getDay = (time) =>
   Math.floor((time - START_TIME * 1000) / (24 * 3600 * 1000)) + 1
 
 const MRC20Presale = {
-  [chainMap.ETH]: '0x38451EbEDc60789D53A643f7EcA809BAa6fDbD37',
-  [chainMap.BSC]: '0x0A3971c81B9b68A6c65C58dff7da92857B334b41',
-  [chainMap.MATIC]: '0x12F6cF9ebfC7c94E14488c7eeBa9d0D7808737B4'
+  [chainMap.ETH]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7',
+  [chainMap.BSC]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7',
+  [chainMap.MATIC]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7',
+  [chainMap.FTM]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7',
+  [chainMap.ARBITRUM]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7',
+  [chainMap.AVAX]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7',
+  [chainMap.OPTIMISM]: '0x671B29e20d834dc27e2af3A717F2204d89aF9Cd7'
 }
 
 module.exports = {

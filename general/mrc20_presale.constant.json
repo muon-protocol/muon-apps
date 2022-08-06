@@ -17070,9 +17070,13 @@
   "IDO_PARTICIPANT_TOKENS": 37500000,
   "MUON_PRICE": 0.02,
   "chainMap": {
-    "ETH": 4,
-    "BSC": 97,
-    "MATIC": 80001
+    "ETH": 1,
+    "BSC": 56,
+    "MATIC": 137,
+    "FTM": 250,
+    "AVAX": 43114,
+    "ARBITRUM": 42161,
+    "OPTIMISM": 10
   },
   "LockType": {
     "ALLOCATION": "ALLOCATION",
