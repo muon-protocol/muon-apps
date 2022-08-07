@@ -5,6 +5,7 @@ module.exports = {
   APP_ID: 2,
 
   onRequest: async function (request) {
+    throw { message: `MuonApp disabled.` }
     let {method, data: {params}} = request;
     switch (method) {
       case 'call':{
