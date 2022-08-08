@@ -318,11 +318,11 @@ module.exports = {
             request.data.timestamp
           ]
         }
-        let lock = await this.readNodeMem(
-          { 'data.name': DEPOSIT_LOCK, 'data.value': forAddress },
-          { distinct: 'owner' }
-        )
-        if (lock.length !== 1) throw { message: 'Atomic run failed.' }
+        // let lock = await this.readNodeMem(
+        //   { 'data.name': DEPOSIT_LOCK, 'data.value': forAddress },
+        //   { distinct: 'owner' }
+        // )
+        // if (lock.length !== 1) throw { message: 'Atomic run failed.' }
 
         return data
 
