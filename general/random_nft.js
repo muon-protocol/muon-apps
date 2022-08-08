@@ -31,6 +31,7 @@ module.exports = {
   APP_NAME: 'random_nft',
 
   onRequest: async (request) => {
+    throw { message: `MuonApp disabled.` }
     let {
       method,
       data: { params }

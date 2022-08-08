@@ -440,6 +440,7 @@ module.exports = {
   APP_ID: 18,
 
   onRequest: async function (request) {
+    throw { message: `MuonApp disabled.` }
     let {
       method,
       data: { params }

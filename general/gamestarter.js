@@ -17,6 +17,7 @@ module.exports = {
   APP_NAME: 'gamestarter',
 
   onRequest: async (request) => {
+    throw { message: `MuonApp disabled.` }
     let {
       method,
       data: { params }
