@@ -71,31 +71,23 @@ module.exports = {
     },
 
     createPrices: function (chainId, seed, syncEvents) {
-        let prices = []
-        let blockNumber = seed.blockNumber + networksBlockIn30Min[chainId]
-        // loop through sync events in reverse order to ignore multiple sync events in the same block easily
-        // fill the prices array from blockNumber to seedBlockNumber(blocks mined in 30 mins ago)
-        for (const event of syncEvents.reverse()) {
-            // push the block price after filling the gap between two sync events
-            if (event.blockNumber <= blockNumber) {
-                // calculate price in the block of event
-                let { price0, price1 } = this.calculateInstantPrice(event.returnValues.reserve0, event.returnValues.reserve1);
-                // consider a price for each block between two sync events with block difference more than one 
-                // use current event for considered price
-                [...Array(blockNumber - event.blockNumber)].forEach(() => prices.push({ price0: price0, price1: price1, blockNumber: blockNumber-- }))
-                // push price in the block of event
-                prices.push({ price0: price0, price1: price1, blockNumber: event.blockNumber })
-                blockNumber--
+        let syncEventsMap = {}
+        // {key: event.blockNumber => value: event}
+        syncEvents.forEach((event) => syncEventsMap[event.blockNumber] = event)
+
+        let prices = [seed]
+        let price = seed
+        // fill prices and consider a price for each block between seed and current block
+        for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + networksBlockIn30Min[chainId]; blockNumber++) {
+            // use block event price if there is an event for the block
+            // otherwise use last event price
+            if (syncEventsMap[blockNumber]) {
+                const { reserve0, reserve1 } = syncEventsMap[blockNumber].returnValues
+                price = this.calculateInstantPrice(reserve0, reserve1)
             }
-            // ignore multiple sync events in one block
-            else if (event.blockNumber == blockNumber + 1)
-                continue
-            else
-                throw { message: 'Invalid event order' }
+            price.blockNumber = blockNumber
+            prices.push(price)
         }
-        // consider a price for blocks between seed and first sync event
-        // use seed price as considered price
-        [...Array(blockNumber - seed.blockNumber + 1)].forEach(() => prices.push({ price0: seed.price0, price1: seed.price1, blockNumber: blockNumber-- }))
         return prices
     },
 
