@@ -28,7 +28,6 @@ module.exports = {
     REMOTE_CALL_TIMEOUT: 30000,
 
     onRequest: async function (request) {
-        throw { message: `MuonApp disabled.` }
         let {
             method,
             data: { params }
