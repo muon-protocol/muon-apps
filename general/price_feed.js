@@ -91,6 +91,10 @@ module.exports = {
         return prices
     },
 
+    removeOutlier: function (prices) {
+
+    },
+
     calculateAveragePrice: function (prices) {
         const sumPrice = prices.reduce((result, event) => { return { price0: result.price0.add(new BN(event.price0)), price1: result.price1.add(new BN(event.price1)) } }, { price0: new BN(0), price1: new BN(0) })
         const averagePrice = { price0: sumPrice.price0.div(new BN(prices.length)), price1: sumPrice.price1.div(new BN(prices.length)) }
@@ -117,6 +121,8 @@ module.exports = {
                 const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
                 // create an array contains a price for each block mined 30 mins ago
                 const prices = this.createPrices(chainId, seed, syncEvents)
+                // remove outlier prices
+                prices = this.removeOutlier(prices)
                 // calculate the average price
                 const price = this.calculateAveragePrice(prices)
 
