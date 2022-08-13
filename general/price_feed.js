@@ -76,7 +76,7 @@ module.exports = {
         syncEvents.forEach((event) => syncEventsMap[event.blockNumber] = event)
 
         let prices = [seed]
-        let price = seed
+        let price = { ...seed }
         // fill prices and consider a price for each block between seed and current block
         for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + networksBlockIn30Min[chainId]; blockNumber++) {
             // use block event price if there is an event for the block
@@ -86,7 +86,7 @@ module.exports = {
                 price = this.calculateInstantPrice(reserve0, reserve1)
             }
             price.blockNumber = blockNumber
-            prices.push(price)
+            prices.push({ ...price })
         }
         return prices
     },
