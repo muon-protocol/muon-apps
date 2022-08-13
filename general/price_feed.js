@@ -106,10 +106,13 @@ module.exports = {
     removeOutlierZScore: function (prices, prices0) {
         const threshold = 2
         const mean = this.calculateAveragePrice(prices)
+        // calculate std(standard deviation)
         const std0 = this.std(prices0)
         if (std0 == 0) return prices
 
         let result = []
+        // Z score = (price - mean) / std
+        // price is not reliable if Z score < threshold
         prices.forEach((price) => price.price0.sub(mean.price0).div(new BN(std0)).abs() < threshold ? result.push(price) : {})
         return result
 
@@ -121,6 +124,7 @@ module.exports = {
         const logPrices0 = []
         prices.forEach((price) => logPrices0.push(price.price0))
         let logOutlierRemoved = this.removeOutlierZScore(logPrices, logPrices0)
+
         let logOutlierRemovedPrices0 = []
         logOutlierRemoved.forEach((price) => logOutlierRemovedPrices0.push(price.price0))
         logOutlierRemoved = this.removeOutlierZScore(logOutlierRemoved, logOutlierRemovedPrices0)
@@ -158,9 +162,9 @@ module.exports = {
                 // create an array contains a price for each block mined 30 mins ago
                 const prices = this.createPrices(chainId, seed, syncEvents)
                 // remove outlier prices
-                prices = this.removeOutlier(prices)
+                const reliablePrices = this.removeOutlier(prices)
                 // calculate the average price
-                const price = this.calculateAveragePrice(prices)
+                const price = this.calculateAveragePrice(reliablePrices)
 
                 return {
                     chain: chain,
