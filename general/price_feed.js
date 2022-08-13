@@ -28,13 +28,13 @@ module.exports = {
     REMOTE_CALL_TIMEOUT: 30000,
 
 
-    isPriceToleranceOk: function (price, expectedPrice) {
+    isPriceToleranceOk: function (price, expectedPrice, priceTolerance) {
         let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
 
         if (
             new BN(priceDiff)
                 .div(new BN(expectedPrice))
-                .gt(toBaseUnit(PRICE_TOLERANCE, '18'))
+                .gt(toBaseUnit(priceTolerance, '18'))
         ) {
             return false
         }
@@ -202,7 +202,7 @@ module.exports = {
                     { price: price0, expectedPrice: expectedPrice0 },
                     { price: price1, expectedPrice: expectedPrice1 }
                 ].forEach(
-                    (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice))
+                    (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice, PRICE_TOLERANCE))
                 )
                 // throw error in case of high price difference between current node and node1
                 if (
