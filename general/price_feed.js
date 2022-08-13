@@ -92,7 +92,19 @@ module.exports = {
     },
 
     removeOutlier: function (prices) {
+        const logPrices = []
+        prices.forEach((price) => logPrices.push({ price0: new BN(BigInt(Math.round(Math.log(price.price0)))), price1: new BN(BigInt(Math.round(Math.log(price.price1)))), blockNumber: price.blockNumber }))
+        const logPrices0 = []
+        prices.forEach((price) => logPrices0.push(price.price0))
+        let logOutlierRemoved = this.removeOutlierZScore(logPrices, logPrices0)
+        let logOutlierRemovedPrices0 = []
+        logOutlierRemoved.forEach((price) => logOutlierRemovedPrices0.push(price.price0))
+        logOutlierRemoved = this.removeOutlierZScore(logOutlierRemoved, logOutlierRemovedPrices0)
 
+        const outlierRemoved = []
+        prices.forEach((price, index) => logOutlierRemoved.includes(logPrices[index]) ? outlierRemoved.push(price) : {})
+
+        return outlierRemoved
     },
 
     calculateAveragePrice: function (prices) {
