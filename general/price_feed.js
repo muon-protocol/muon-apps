@@ -91,6 +91,18 @@ module.exports = {
         return prices
     },
 
+    removeOutlierZScore: function (prices, prices0) {
+        const threshold = 2
+        const mean = this.calculateAveragePrice(prices)
+        const std0 = this.std(prices0)
+        if (std0 == 0) return prices
+
+        let result = []
+        prices.forEach((price) => price.price0.sub(mean.price0).div(new BN(std0)).abs() < threshold ? result.push(price) : {})
+        return result
+
+    },
+
     removeOutlier: function (prices) {
         const logPrices = []
         prices.forEach((price) => logPrices.push({ price0: new BN(BigInt(Math.round(Math.log(price.price0)))), price1: new BN(BigInt(Math.round(Math.log(price.price1)))), blockNumber: price.blockNumber }))
