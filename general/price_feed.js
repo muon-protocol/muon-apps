@@ -141,6 +141,10 @@ module.exports = {
         return averagePrice
     },
 
+    checkLastDayPrice: function () {
+
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -165,6 +169,8 @@ module.exports = {
                 const reliablePrices = this.removeOutlier(prices)
                 // calculate the average price
                 const price = this.calculateAveragePrice(reliablePrices)
+                // check for high price change in 1D
+                this.checkLastDayPrice()
 
                 return {
                     chain: chain,
