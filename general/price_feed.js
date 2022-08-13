@@ -91,6 +91,18 @@ module.exports = {
         return prices
     },
 
+    std: function (arr) {
+        let mean = arr.reduce((result, el) => result.add(el), new BN(0)).div(new BN(arr.length))
+
+        arr = arr.map((k) => k.sub(mean).pow(new BN(2)))
+
+        let sum = arr.reduce((result, el) => result.add(el), new BN(0))
+
+        let variance = sum.div(new BN(arr.length))
+
+        return BigInt(Math.sqrt(variance))
+    },
+
     removeOutlierZScore: function (prices, prices0) {
         const threshold = 2
         const mean = this.calculateAveragePrice(prices)
