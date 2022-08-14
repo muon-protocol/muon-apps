@@ -28,6 +28,13 @@ module.exports = {
         return true
     },
 
+    getRoute: function (chainId, tokenAddress) {
+
+    },
+
+    calculatePrice: async function (route, tokenAddress) {
+
+    },
 
     onRequest: async function (request) {
         let {
@@ -38,8 +45,22 @@ module.exports = {
         switch (method) {
             case 'signature':
 
-                let { } = params
-                return {}
+                let { chain, tokenAddress } = params
+                if (!chain) throw { message: 'Invalid chain' }
+
+                const chainId = CHAINS[chain]
+
+                // get token route for calculating price
+                const route = this.getRoute(chainId, tokenAddress)
+                if (!route) throw { message: 'Invalid token' }
+                // calculate price using the given route
+                const price = await this.calculatePrice(route, tokenAddress)
+
+                return {
+                    chain: chain,
+                    tokenAddress: tokenAddress,
+                    price: price.toString()
+                }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -54,9 +75,19 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { } = result
+                let { chain, tokenAddress, price } = result
 
-                return soliditySha3([])
+                const expectedPrice = request.data.result.price
+
+                if (!this.isPriceToleranceOk(price, expectedPrice, PRICE_TOLERANCE)) throw { message: 'Price threshold exceeded' }
+
+                return soliditySha3([
+                    { type: 'uint32', value: this.APP_ID },
+                    { type: 'address', value: tokenAddress },
+                    { type: 'uint256', value: expectedPrice },
+                    { type: 'uint256', value: String(CHAINS[chain]) },
+                    { type: 'uint256', value: request.data.timestamp }
+                ])
 
             }
             default:
