@@ -39,7 +39,7 @@ module.exports = {
         let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
 
         if (
-            new BN(priceDiff)
+            new BN(priceDiff).mul(toBaseUnit('1', '18'))
                 .div(new BN(expectedPrice))
                 .gt(toBaseUnit(priceTolerance, '18'))
         ) {
