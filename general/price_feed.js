@@ -60,6 +60,7 @@ module.exports = {
 
                 return {
                     chain: chain,
+                    pairAddress: pairAddress,
                     price: price,
                     denomerator: denomerator
                 }
@@ -77,10 +78,11 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, price, denomerator } = result
+                let { chain, pairAddress, price, denomerator } = result
 
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
+                    { type: 'address', value: pairAddress },
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: denomerator },
                     { type: 'uint256', value: String(CHAINS[chain]) },
