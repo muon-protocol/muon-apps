@@ -12,9 +12,15 @@ const networksWeb3 = {
     250: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM)),
 }
 
-const networksBlockIn30Min = {
-    1: 146,
-    250: 1650
+const networksBlocks = {
+    1: {
+        '30m': 135,
+        '1D': 6467,
+    },
+    250: {
+        '30m': 1475,
+        '1D': 70819,
+    }
 }
 
 const PRICE_TOLERANCE = '0.0005'
@@ -50,9 +56,9 @@ module.exports = {
         return { price0, price1 }
     },
 
-    getSeed: async function (chainId, pairAddress) {
+    getSeed: async function (chainId, pairAddress, period) {
         const w3 = networksWeb3[chainId]
-        const seedBlockNumber = (await w3.eth.getBlock("latest")).number - networksBlockIn30Min[chainId]
+        const seedBlockNumber = (await w3.eth.getBlock("latest")).number - networksBlocks[chainId][period]
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
         const { price0, price1 } = this.calculateInstantPrice(_reserve0, _reserve1)
@@ -65,7 +71,7 @@ module.exports = {
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const options = {
             fromBlock: seedBlockNumber + 1,
-            toBlock: seedBlockNumber + networksBlockIn30Min[chainId]
+            toBlock: seedBlockNumber + networksBlocks[chainId]['30m']
         }
         const events = await pair.getPastEvents("Sync", options)
         return events
@@ -79,7 +85,7 @@ module.exports = {
         let prices = [seed]
         let price = { ...seed }
         // fill prices and consider a price for each block between seed and current block
-        for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + networksBlockIn30Min[chainId]; blockNumber++) {
+        for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + networksBlocks[chainId]['30m']; blockNumber++) {
             // use block event price if there is an event for the block
             // otherwise use last event price
             if (syncEventsMap[blockNumber]) {
@@ -143,7 +149,7 @@ module.exports = {
     },
 
     checkLastDayPrice: function (chainId, pairAddress, price) {
-        const lastDayPrice = getLastDayPrice(chainId, pairAddress)
+        const lastDayPrice = this.getSeed(chainId, pairAddress, '1D')
         if (!this.isPriceToleranceOk(price, lastDayPrice.price0, FUSE_PRICE_TOLERANCE)) throw { message: `High price gap between last day and twap price for ${pairAddress}` }
     },
 
@@ -162,7 +168,7 @@ module.exports = {
                 const chainId = CHAINS[chain]
 
                 // get price of 30 mins ago
-                const seed = await this.getSeed(chainId, pairAddress)
+                const seed = await this.getSeed(chainId, pairAddress, '30m')
                 // get sync events that are less than 30 mins old 
                 const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
                 // create an array contains a price for each block mined 30 mins ago
