@@ -24,7 +24,7 @@ const networksBlocks = {
 }
 
 const PRICE_TOLERANCE = '0.0005'
-const FUSE_PRICE_TOLERANCE = '0.3'
+const FUSE_PRICE_TOLERANCE = '0.02'
 const Q112 = new BN(2).pow(new BN(112))
 
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
@@ -148,9 +148,9 @@ module.exports = {
         return averagePrice
     },
 
-    checkLastDayPrice: function (chainId, pairAddress, price) {
-        const lastDayPrice = this.getSeed(chainId, pairAddress, '1D')
-        if (!this.isPriceToleranceOk(price, lastDayPrice.price0, FUSE_PRICE_TOLERANCE)) throw { message: `High price gap between last day and twap price for ${pairAddress}` }
+    checkLastDayPrice: async function (chainId, pairAddress, price) {
+        const lastDayPrice = await this.getSeed(chainId, pairAddress, '1D')
+        return this.isPriceToleranceOk(price.price0, lastDayPrice.price0, FUSE_PRICE_TOLERANCE)
     },
 
     onRequest: async function (request) {
@@ -178,7 +178,7 @@ module.exports = {
                 // calculate the average price
                 const price = this.calculateAveragePrice(reliablePrices)
                 // check for high price change in 1D
-                this.checkLastDayPrice(chainId, pairAddress, price)
+                if (!await this.checkLastDayPrice(chainId, pairAddress, price)) throw { message: `High price gap between last day and twap price for ${pairAddress}` }
 
                 return {
                     chain: chain,
