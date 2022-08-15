@@ -11,7 +11,7 @@ const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserv
 
 module.exports = {
     APP_NAME: 'token_price_feed',
-    APP_ID: 27,
+    APP_ID: 100,
     REMOTE_CALL_TIMEOUT: 30000,
 
 
@@ -59,6 +59,7 @@ module.exports = {
                 return {
                     chain: chain,
                     tokenAddress: tokenAddress,
+                    route: route,
                     price: price.toString()
                 }
 
@@ -75,7 +76,7 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, tokenAddress, price } = result
+                let { chain, tokenAddress, route, price } = result
 
                 const expectedPrice = request.data.result.price
 
@@ -84,6 +85,7 @@ module.exports = {
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
                     { type: 'address', value: tokenAddress },
+                    { type: 'address[]', value: route },
                     { type: 'uint256', value: expectedPrice },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp }
