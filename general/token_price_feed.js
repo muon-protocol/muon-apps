@@ -1,4 +1,4 @@
-const { toBaseUnit, soliditySha3, BN } = MuonAppUtils
+const { toBaseUnit, soliditySha3, BN, ethCall } = MuonAppUtils
 
 const CHAINS = {
     mainnet: 1,
@@ -17,7 +17,7 @@ const ROUTES = {
 const PRICE_TOLERANCE = '0.0005'
 const Q112 = new BN(2).pow(new BN(112))
 
-const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
+const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "token0", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "payable": false, "stateMutability": "view", "type": "function" }, { "constant": true, "inputs": [], "name": "token1", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "payable": false, "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'token_price_feed',
@@ -42,6 +42,22 @@ module.exports = {
         return ROUTES[chainId][tokenAddress]
     },
 
+    getTokenPairPrice: async function (chain, pairAddress, tokenAddress) {
+        let request = {
+            method: 'signature',
+            data: {
+                params: {
+                    chain: chain,
+                    pairAddress: pairAddress,
+                }
+            }
+        }
+
+        let pairPrice = await this.invoke("price_feed", "onRequest", request)
+        let token0 = await ethCall(pairAddress, 'token0', [], UNISWAPV2_PAIR_ABI, CHAINS[chain])
+        let token1 = await ethCall(pairAddress, 'token1', [], UNISWAPV2_PAIR_ABI, CHAINS[chain])
+        if (tokenAddress == token0) return { pairPrice: new BN(pairPrice.price0), token: token1 }
+        return { price: new BN(pairPrice.price1), unitToken: token0 }
     },
 
     calculatePrice: async function (chain, route, tokenAddress) {
