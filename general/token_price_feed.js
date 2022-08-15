@@ -5,7 +5,17 @@ const CHAINS = {
     fantom: 250,
 }
 
+const ROUTES = {
+    [CHAINS.mainnet]: {
+        '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': ['0xEBFb684dD2b01E698ca6c14F10e4f289934a54D6']
+    },
+    [CHAINS.fantom]: {
+        '0xDE5ed76E7c05eC5e4572CfC88d1ACEA165109E44': ['0x2599Eba5fD1e49F294C76D034557948034d6C96E', '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D']
+    },
+}
+
 const PRICE_TOLERANCE = '0.0005'
+const Q112 = new BN(2).pow(new BN(112))
 
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
 
@@ -29,11 +39,19 @@ module.exports = {
     },
 
     getRoute: function (chainId, tokenAddress) {
+        return ROUTES[chainId][tokenAddress]
+    },
 
     },
 
-    calculatePrice: async function (route, tokenAddress) {
-
+    calculatePrice: async function (chain, route, tokenAddress) {
+        let price = Q112
+        let tokenPairPrice = { unitToken: tokenAddress }
+        for (var pairAddress of route) {
+            tokenPairPrice = await this.getTokenPairPrice(chain, pairAddress, tokenPairPrice.token)
+            price = price.mul(tokenPairPrice.price).div(Q112)
+        }
+        return price
     },
 
     onRequest: async function (request) {
@@ -54,7 +72,7 @@ module.exports = {
                 const route = this.getRoute(chainId, tokenAddress)
                 if (!route) throw { message: 'Invalid token' }
                 // calculate price using the given route
-                const price = await this.calculatePrice(route, tokenAddress)
+                const price = await this.calculatePrice(chain, route, tokenAddress)
 
                 return {
                     chain: chain,
