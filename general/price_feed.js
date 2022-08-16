@@ -25,8 +25,9 @@ const networksBlocks = {
 
 const THRESHOLD = 2
 const PRICE_TOLERANCE = '0.0005'
-const FUSE_PRICE_TOLERANCE = '0.02'
+const FUSE_PRICE_TOLERANCE = '0.1'
 const Q112 = new BN(2).pow(new BN(112))
+const ETH = new BN(toBaseUnit('1', '18'))
 
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
 
@@ -38,10 +39,11 @@ module.exports = {
 
     isPriceToleranceOk: function (price, expectedPrice, priceTolerance) {
         let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
-
-        return !new BN(priceDiff).mul(toBaseUnit('1', '18'))
-            .div(new BN(expectedPrice))
-            .gt(toBaseUnit(priceTolerance, '18'))
+        const priceDiffPercentage = new BN(priceDiff).mul(ETH).div(new BN(expectedPrice))
+        return {
+            isOk: !priceDiffPercentage.gt(toBaseUnit(priceTolerance, '18')),
+            priceDiffPercentage: priceDiffPercentage.mul(new BN(100)).div(ETH)
+        }
     },
 
     calculateInstantPrice: function (reserve0, reserve1) {
@@ -52,9 +54,12 @@ module.exports = {
         return { price0, price1 }
     },
 
-    getSeed: async function (chainId, pairAddress, period) {
+    getSeed: async function (chainId, pairAddress, period, toBlock) {
         const w3 = networksWeb3[chainId]
-        const seedBlockNumber = (await w3.eth.getBlock("latest")).number - networksBlocks[chainId][period]
+        const seedBlockNumber = toBlock ?
+            (await w3.eth.getBlock(toBlock)).number - networksBlocks[chainId][period] :
+            (await w3.eth.getBlock("latest")).number - networksBlocks[chainId][period]
+
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
         const { price0, price1 } = this.calculateInstantPrice(_reserve0, _reserve1)
@@ -148,9 +153,14 @@ module.exports = {
         return averagePrice
     },
 
-    checkFusePrice: async function (chainId, pairAddress, price) {
-        const fusePrice = await this.getSeed(chainId, pairAddress, 'fuse')
-        return this.isPriceToleranceOk(price.price0, fusePrice.price0, FUSE_PRICE_TOLERANCE)
+    checkFusePrice: async function (chainId, pairAddress, price, toBlock) {
+        const fusePrice = await this.getSeed(chainId, pairAddress, 'fuse', toBlock)
+        const checkResult = this.isPriceToleranceOk(price.price0, fusePrice.price0, FUSE_PRICE_TOLERANCE)
+        return {
+            isOk: checkResult.isOk,
+            priceDiffPercentage: checkResult.priceDiffPercentage,
+            block: fusePrice.blockNumber
+        }
     },
 
     onRequest: async function (request) {
@@ -162,13 +172,13 @@ module.exports = {
         switch (method) {
             case 'signature':
 
-                let { chain, pairAddress } = params
+                let { chain, pairAddress, toBlock } = params
                 if (!chain) throw { message: 'Invalid chain' }
 
                 const chainId = CHAINS[chain]
 
                 // get price of 30 mins ago
-                const seed = await this.getSeed(chainId, pairAddress, 'seed')
+                const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
                 // get sync events that are less than 30 mins old 
                 const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
                 // create an array contains a price for each block mined 30 mins ago
@@ -178,13 +188,15 @@ module.exports = {
                 // calculate the average price
                 const price = this.calculateAveragePrice(reliablePrices)
                 // check for high price change in comparison with fuse price
-                if (!await this.checkFusePrice(chainId, pairAddress, price)) throw { message: `High price gap between last day and twap price for ${pairAddress}` }
+                const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
+                if (!fuse.isOk) throw { message: `High price gap (${fuse.priceDiffPercentage}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
 
                 return {
                     chain: chain,
                     pairAddress: pairAddress,
                     price0: price.price0.toString(),
-                    price1: price.price1.toString()
+                    price1: price.price1.toString(),
+                    ...(toBlock ? { toBlock: toBlock } : {})
                 }
 
             default:
@@ -200,7 +212,7 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, pairAddress, price0, price1 } = result
+                let { chain, pairAddress, price0, price1, toBlock } = result
 
                 let priceTolerancesStatus = []
                 // node1 result
@@ -210,7 +222,7 @@ module.exports = {
                     { price: price0, expectedPrice: expectedPrice0 },
                     { price: price1, expectedPrice: expectedPrice1 }
                 ].forEach(
-                    (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice, PRICE_TOLERANCE))
+                    (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice, PRICE_TOLERANCE).isOk)
                 )
                 // throw error in case of high price difference between current node and node1
                 if (
@@ -225,7 +237,8 @@ module.exports = {
                     { type: 'uint256', value: expectedPrice0 },
                     { type: 'uint256', value: expectedPrice1 },
                     { type: 'uint256', value: String(CHAINS[chain]) },
-                    { type: 'uint256', value: request.data.timestamp }
+                    { type: 'uint256', value: request.data.timestamp },
+                    ...(toBlock ? [{ type: 'uint256', value: toBlock }] : []),
                 ])
 
             }
