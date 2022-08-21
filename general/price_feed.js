@@ -50,8 +50,7 @@ module.exports = {
         // multiply reserveA into Q112 for precision in division 
         // reserveA * (2 ** 112) / reserverB
         const price0 = (new BN(reserve1)).mul(Q112).div(new BN(reserve0))
-        const price1 = (new BN(reserve0)).mul(Q112).div(new BN(reserve1))
-        return { price0, price1 }
+        return { price0 }
     },
 
     getSeed: async function (chainId, pairAddress, period, toBlock) {
@@ -62,8 +61,8 @@ module.exports = {
 
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
-        const { price0, price1 } = this.calculateInstantPrice(_reserve0, _reserve1)
-        return { price0: price0, price1: price1, blockNumber: seedBlockNumber }
+        const { price0 } = this.calculateInstantPrice(_reserve0, _reserve1)
+        return { price0: price0, blockNumber: seedBlockNumber }
 
     },
 
@@ -123,9 +122,11 @@ module.exports = {
 
     removeOutlier: function (prices) {
         const logPrices = []
-        prices.forEach((price) => logPrices.push({ price0: new BN(BigInt(Math.round(Math.log(price.price0)))), price1: new BN(BigInt(Math.round(Math.log(price.price1)))), blockNumber: price.blockNumber }))
         const logPrices0 = []
-        prices.forEach((price) => logPrices0.push(price.price0))
+        prices.forEach((price) => {
+            logPrices.push({ price0: new BN(BigInt(Math.round(Math.log(price.price0)))), blockNumber: price.blockNumber });
+            logPrices0.push(price.price0);
+        })
         let logOutlierRemoved = this.removeOutlierZScore(logPrices, logPrices0)
 
         let logOutlierRemovedPrices0 = []
@@ -141,8 +142,8 @@ module.exports = {
     calculateAveragePrice: function (prices) {
         let fn = function (result, event) {
             return {
-                price0: result.price0.add(new BN(event.price0)),
-                price1: result.price1.add(new BN(event.price1))
+                price0: result.price0.add(event.price0),
+                price1: result.price1.add(Q112.mul(Q112).div(event.price0))
             }
         }
         const sumPrice = prices.reduce(fn, { price0: new BN(0), price1: new BN(0) })
@@ -214,22 +215,12 @@ module.exports = {
 
                 let { chain, pairAddress, price0, price1, toBlock } = result
 
-                let priceTolerancesStatus = []
                 // node1 result
                 let [expectedPrice0, expectedPrice1] = [request.data.result.price0, request.data.result.price1];
                 // check price difference between current node and node1
-                [
-                    { price: price0, expectedPrice: expectedPrice0 },
-                    { price: price1, expectedPrice: expectedPrice1 }
-                ].forEach(
-                    (price) => priceTolerancesStatus.push(this.isPriceToleranceOk(price.price, price.expectedPrice, PRICE_TOLERANCE).isOk)
-                )
                 // throw error in case of high price difference between current node and node1
-                if (
-                    priceTolerancesStatus.includes(false)
-                ) {
+                if (!this.isPriceToleranceOk(price0, expectedPrice0, PRICE_TOLERANCE).isOk)
                     throw { message: 'Price threshold exceeded' }
-                }
 
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
