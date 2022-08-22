@@ -4,6 +4,7 @@ module.exports = {
   APP_NAME: 'muon_v3_sample',
 
   onRequest: async (request) => {
+    let { method } = request
     switch (method) {
       case 'test':
         return {
