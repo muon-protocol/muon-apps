@@ -7,7 +7,6 @@ module.exports = {
     switch (method) {
       case 'test':
         return {
-          appId: this.APP_ID,
           testParam: 100, // uint256
         }
 

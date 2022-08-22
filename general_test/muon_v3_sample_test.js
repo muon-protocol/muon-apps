@@ -1,5 +1,5 @@
 require('dotenv').config({ path: './dev-chain/dev-node-1.env' })
-require('../../core/global')
+require('../../src/core/global')
 const { onRequest } = require('../general/muon_v3_sample');
 
 const test= async () => {
