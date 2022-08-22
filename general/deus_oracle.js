@@ -32,7 +32,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: (request, result) => {
+  hashRequestResult: function (request, result) {
     switch (request.method) {
       case 'getPrice':
         return soliditySha3([

@@ -16,7 +16,7 @@ function getBalance(address) {
 module.exports = {
   APP_NAME: 'gamestarter',
 
-  onRequest: async (request) => {
+  onRequest: async function (request) {
     throw { message: `MuonApp disabled.` }
     let {
       method,
@@ -43,7 +43,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: (request, result) => {
+  hashRequestResult: function (request, result) {
     let { method } = request
     switch (method) {
       case 'claim':

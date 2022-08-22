@@ -171,7 +171,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: (request, result) => {
+  hashRequestResult: function (request, result) {
     // console.log(result)
     switch (request.method) {
       case 'test_speed':
@@ -193,7 +193,7 @@ module.exports = {
   /**
    * store data on request confirm
    */
-  onMemWrite: (req, res) => {
+  onMemWrite: function (req, res) {
     if (req.method === 'test_memory') {
       let {
         data: {
