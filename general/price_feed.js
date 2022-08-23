@@ -169,11 +169,11 @@ module.exports = {
                 if (!toBlock) toBlock = currentBlockNumber
                 else if (toBlock > currentBlockNumber) throw { message: 'Invalid Block Number' }
 
-                // get price of 30 mins ago
+                // get seed price
                 const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
-                // get sync events that are less than 30 mins old 
+                // get sync events that are emitted after seed block
                 const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
-                // create an array contains a price for each block mined 30 mins ago
+                // create an array contains a price for each block mined after seed block 
                 const prices = this.createPrices(chainId, seed, syncEventsMap)
                 // remove outlier prices
                 const reliablePrices = this.removeOutlier(prices)
