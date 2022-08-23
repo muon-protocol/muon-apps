@@ -55,9 +55,7 @@ module.exports = {
 
     getSeed: async function (chainId, pairAddress, period, toBlock) {
         const w3 = networksWeb3[chainId]
-        const seedBlockNumber = toBlock ?
-            (await w3.eth.getBlock(toBlock)).number - networksBlocks[chainId][period] :
-            (await w3.eth.getBlock("latest")).number - networksBlocks[chainId][period]
+        const seedBlockNumber = toBlock - networksBlocks[chainId][period]
 
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
@@ -166,6 +164,10 @@ module.exports = {
                 if (!chain) throw { message: 'Invalid chain' }
 
                 const chainId = CHAINS[chain]
+                const w3 = networksWeb3[chainId]
+                const currentBlockNumber = await w3.eth.getBlockNumber()
+                if (!toBlock) toBlock = currentBlockNumber
+                else if (toBlock > currentBlockNumber) throw { message: 'Invalid Block Number' }
 
                 // get price of 30 mins ago
                 const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
@@ -186,7 +188,7 @@ module.exports = {
                     pairAddress: pairAddress,
                     price0: price.price0.toString(),
                     price1: price.price1.toString(),
-                    ...(toBlock ? { toBlock: toBlock } : {})
+                    toBlock: toBlock,
                 }
 
             default:
@@ -218,7 +220,7 @@ module.exports = {
                     { type: 'uint256', value: expectedPrice1 },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp },
-                    ...(toBlock ? [{ type: 'uint256', value: toBlock }] : []),
+                    { type: 'uint256', value: toBlock },
                 ])
 
             }
