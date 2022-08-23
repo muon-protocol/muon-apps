@@ -16,7 +16,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: (request, result) => {
+  hashRequestResult: function(request, result){
     let { method } = request
     switch (method) {
       case 'test':
