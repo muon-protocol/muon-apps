@@ -220,7 +220,8 @@ module.exports = {
                     { type: 'uint256', value: expectedPrice1 },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp },
-                    { type: 'uint256', value: toBlock },
+                    //TODO: consider about difference in toBlock value of nodes results
+                    { type: 'uint256', value: request.data.result.toBlock },
                 ])
 
             }
