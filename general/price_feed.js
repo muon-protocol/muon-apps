@@ -50,7 +50,7 @@ module.exports = {
         // multiply reserveA into Q112 for precision in division 
         // reserveA * (2 ** 112) / reserverB
         const price0 = (new BN(reserve1)).mul(Q112).div(new BN(reserve0))
-        return { price0 }
+        return price0
     },
 
     getSeed: async function (chainId, pairAddress, period, toBlock) {
@@ -61,7 +61,7 @@ module.exports = {
 
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
-        const { price0 } = this.calculateInstantPrice(_reserve0, _reserve1)
+        const price0 = this.calculateInstantPrice(_reserve0, _reserve1)
         return { price0: price0, blockNumber: seedBlockNumber }
 
     },
@@ -73,17 +73,17 @@ module.exports = {
             fromBlock: seedBlockNumber + 1,
             toBlock: seedBlockNumber + networksBlocks[chainId]['seed']
         }
-        const events = await pair.getPastEvents("Sync", options)
-        return events
-    },
-
-    createPrices: function (chainId, seed, syncEvents) {
+        const syncEvents = await pair.getPastEvents("Sync", options)
         let syncEventsMap = {}
         // {key: event.blockNumber => value: event}
         syncEvents.forEach((event) => syncEventsMap[event.blockNumber] = event)
+        return syncEventsMap
+    },
 
-        let prices = [seed]
-        let price = { ...seed }
+    createPrices: function (chainId, seed, syncEventsMap) {
+
+        let prices = [seed.price0]
+        let price = seed.price0
         // fill prices and consider a price for each block between seed and current block
         for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + networksBlocks[chainId]['seed']; blockNumber++) {
             // use block event price if there is an event for the block
@@ -92,8 +92,7 @@ module.exports = {
                 const { reserve0, reserve1 } = syncEventsMap[blockNumber].returnValues
                 price = this.calculateInstantPrice(reserve0, reserve1)
             }
-            price.blockNumber = blockNumber
-            prices.push({ ...price })
+            prices.push(price)
         }
         return prices
     },
@@ -106,32 +105,28 @@ module.exports = {
         return BigInt(Math.sqrt(variance))
     },
 
-    removeOutlierZScore: function (prices, prices0) {
+    removeOutlierZScore: function (prices) {
         const mean = this.calculateAveragePrice(prices)
         // calculate std(standard deviation)
-        const std0 = this.std(prices0)
+        const std0 = this.std(prices)
         if (std0 == 0) return prices
 
         let result = []
         // Z score = (price - mean) / std
         // price is not reliable if Z score < threshold
-        prices.forEach((price) => price.price0.sub(mean.price0).div(new BN(std0)).abs() < THRESHOLD ? result.push(price) : {})
+        prices.forEach((price) => price.sub(mean).div(new BN(std0)).abs() < THRESHOLD ? result.push(price) : {})
         return result
 
     },
 
     removeOutlier: function (prices) {
         const logPrices = []
-        const logPrices0 = []
         prices.forEach((price) => {
-            logPrices.push({ price0: new BN(BigInt(Math.round(Math.log(price.price0)))), blockNumber: price.blockNumber });
-            logPrices0.push(price.price0);
+            logPrices.push(new BN(BigInt(Math.round(Math.log(price)))));
         })
-        let logOutlierRemoved = this.removeOutlierZScore(logPrices, logPrices0)
+        let logOutlierRemoved = this.removeOutlierZScore(logPrices)
 
-        let logOutlierRemovedPrices0 = []
-        logOutlierRemoved.forEach((price) => logOutlierRemovedPrices0.push(price.price0))
-        logOutlierRemoved = this.removeOutlierZScore(logOutlierRemoved, logOutlierRemovedPrices0)
+        logOutlierRemoved = this.removeOutlierZScore(logOutlierRemoved)
 
         const outlierRemoved = []
         prices.forEach((price, index) => logOutlierRemoved.includes(logPrices[index]) ? outlierRemoved.push(price) : {})
@@ -139,18 +134,12 @@ module.exports = {
         return outlierRemoved
     },
 
-    calculateAveragePrice: function (prices) {
-        let fn = function (result, event) {
-            return {
-                price0: result.price0.add(event.price0),
-                price1: result.price1.add(Q112.mul(Q112).div(event.price0))
-            }
+    calculateAveragePrice: function (prices, returnReverse) {
+        let fn = function (result, el) {
+            return returnReverse ? { price0: result.price0.add(el), price1: result.price1.add(Q112.mul(Q112).div(el)) } : result.add(el)
         }
-        const sumPrice = prices.reduce(fn, { price0: new BN(0), price1: new BN(0) })
-        const averagePrice = {
-            price0: sumPrice.price0.div(new BN(prices.length)),
-            price1: sumPrice.price1.div(new BN(prices.length))
-        }
+        const sumPrice = prices.reduce(fn, returnReverse ? { price0: new BN(0), price1: new BN(0) } : new BN(0))
+        const averagePrice = returnReverse ? { price0: sumPrice.price0.div(new BN(prices.length)), price1: sumPrice.price1.div(new BN(prices.length)) } : sumPrice.div(new BN(prices.length))
         return averagePrice
     },
 
@@ -181,13 +170,13 @@ module.exports = {
                 // get price of 30 mins ago
                 const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
                 // get sync events that are less than 30 mins old 
-                const syncEvents = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
+                const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
                 // create an array contains a price for each block mined 30 mins ago
-                const prices = this.createPrices(chainId, seed, syncEvents)
+                const prices = this.createPrices(chainId, seed, syncEventsMap)
                 // remove outlier prices
                 const reliablePrices = this.removeOutlier(prices)
                 // calculate the average price
-                const price = this.calculateAveragePrice(reliablePrices)
+                const price = this.calculateAveragePrice(reliablePrices, true)
                 // check for high price change in comparison with fuse price
                 const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
                 if (!fuse.isOk) throw { message: `High price gap (${fuse.priceDiffPercentage}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
