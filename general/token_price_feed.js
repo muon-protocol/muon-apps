@@ -56,7 +56,7 @@ module.exports = {
         let pairPrice = await this.invoke("price_feed", "onRequest", request)
         let token0 = await ethCall(pairAddress, 'token0', [], UNISWAPV2_PAIR_ABI, CHAINS[chain])
         let token1 = await ethCall(pairAddress, 'token1', [], UNISWAPV2_PAIR_ABI, CHAINS[chain])
-        if (tokenAddress == token0) return { pairPrice: new BN(pairPrice.price0), token: token1 }
+        if (tokenAddress == token0) return { price: new BN(pairPrice.price0), token: token1 }
         return { price: new BN(pairPrice.price1), unitToken: token0 }
     },
 
@@ -64,7 +64,7 @@ module.exports = {
         let price = Q112
         let tokenPairPrice = { unitToken: tokenAddress }
         for (var pairAddress of route) {
-            tokenPairPrice = await this.getTokenPairPrice(chain, pairAddress, tokenPairPrice.token)
+            tokenPairPrice = await this.getTokenPairPrice(chain, pairAddress, tokenPairPrice.unitToken)
             price = price.mul(tokenPairPrice.price).div(Q112)
         }
         return price
