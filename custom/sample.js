@@ -171,20 +171,19 @@ module.exports = {
     }
   },
 
-  hashRequestResult: function (request, result) {
+  signParams: function (request, result) {
     // console.log(result)
     switch (request.method) {
       case 'test_speed':
       case 'test_redis':
       case 'test_memory':
       case 'lock':
-        return soliditySha3([{type: 'string', value: result}])
+        return [{type: 'string', value: result}]
       case 'btc_price':
-        let hash = soliditySha3([
+        return [
           { type: 'uint256', value: request.data.result.time },
           { type: 'uint256', value: result.price }
-        ])
-        return hash
+        ]
       default:
         throw { message: `Unknown method: ${request.method}` }
     }
