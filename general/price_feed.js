@@ -61,7 +61,6 @@ module.exports = {
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
         const price0 = this.calculateInstantPrice(_reserve0, _reserve1)
         return { price0: price0, blockNumber: seedBlockNumber }
-
     },
 
     getSyncEvents: async function (chainId, seedBlockNumber, pairAddress) {
@@ -96,11 +95,11 @@ module.exports = {
     },
 
     std: function (arr) {
-        let mean = arr.reduce((result, el) => result.add(el), new BN(0)).div(new BN(arr.length))
-        arr = arr.map((k) => k.sub(mean).pow(new BN(2)))
-        let sum = arr.reduce((result, el) => result.add(el), new BN(0))
-        let variance = sum.div(new BN(arr.length))
-        return BigInt(Math.sqrt(variance))
+        let mean = arr.reduce((result, el) => result + el, 0) / arr.length
+        arr = arr.map((k) => (k - mean) ** 2)
+        let sum = arr.reduce((result, el) => result + el, 0)
+        let variance = sum / arr.length
+        return Math.sqrt(variance)
     },
 
     removeOutlierZScore: function (prices) {
@@ -112,7 +111,7 @@ module.exports = {
         let result = []
         // Z score = (price - mean) / std
         // price is not reliable if Z score < threshold
-        prices.forEach((price) => price.sub(mean).div(new BN(std0)).abs() < THRESHOLD ? result.push(price) : {})
+        prices.forEach((price) => Math.abs(price - mean) / std0 < THRESHOLD ? result.push(price) : {})
         return result
 
     },
@@ -120,7 +119,7 @@ module.exports = {
     removeOutlier: function (prices) {
         const logPrices = []
         prices.forEach((price) => {
-            logPrices.push(new BN(BigInt(Math.round(Math.log(price)))));
+            logPrices.push(Number(Math.log(price).toFixed(3)));
         })
         let logOutlierRemoved = this.removeOutlierZScore(logPrices)
 
@@ -134,10 +133,10 @@ module.exports = {
 
     calculateAveragePrice: function (prices, returnReverse) {
         let fn = function (result, el) {
-            return returnReverse ? { price0: result.price0.add(el), price1: result.price1.add(Q112.mul(Q112).div(el)) } : result.add(el)
+            return returnReverse ? { price0: result.price0.add(el), price1: result.price1.add(Q112.mul(Q112).div(el)) } : result + el
         }
-        const sumPrice = prices.reduce(fn, returnReverse ? { price0: new BN(0), price1: new BN(0) } : new BN(0))
-        const averagePrice = returnReverse ? { price0: sumPrice.price0.div(new BN(prices.length)), price1: sumPrice.price1.div(new BN(prices.length)) } : sumPrice.div(new BN(prices.length))
+        const sumPrice = prices.reduce(fn, returnReverse ? { price0: new BN(0), price1: new BN(0) } : 0)
+        const averagePrice = returnReverse ? { price0: sumPrice.price0.div(new BN(prices.length)), price1: sumPrice.price1.div(new BN(prices.length)) } : sumPrice / prices.length
         return averagePrice
     },
 
