@@ -126,9 +126,10 @@ module.exports = {
         logOutlierRemoved = this.removeOutlierZScore(logOutlierRemoved)
 
         const outlierRemoved = []
-        prices.forEach((price, index) => logOutlierRemoved.includes(logPrices[index]) ? outlierRemoved.push(price) : {})
+        const removed = []
+        prices.forEach((price, index) => logOutlierRemoved.includes(logPrices[index]) ? outlierRemoved.push(price) : removed.push(price.toString()))
 
-        return outlierRemoved
+        return { outlierRemoved, removed }
     },
 
     calculateAveragePrice: function (prices, returnReverse) {
@@ -175,9 +176,9 @@ module.exports = {
                 // create an array contains a price for each block mined after seed block 
                 const prices = this.createPrices(chainId, seed, syncEventsMap)
                 // remove outlier prices
-                const reliablePrices = this.removeOutlier(prices)
+                const { outlierRemoved, removed } = this.removeOutlier(prices)
                 // calculate the average price
-                const price = this.calculateAveragePrice(reliablePrices, true)
+                const price = this.calculateAveragePrice(outlierRemoved, true)
                 // check for high price change in comparison with fuse price
                 const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
                 if (!fuse.isOk) throw { message: `High price gap (${fuse.priceDiffPercentage}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
@@ -187,6 +188,7 @@ module.exports = {
                     pairAddress: pairAddress,
                     price0: price.price0.toString(),
                     price1: price.price1.toString(),
+                    removedOutliers: removed,
                     toBlock: toBlock,
                 }
 
