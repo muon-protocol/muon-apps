@@ -29,7 +29,7 @@ const FUSE_PRICE_TOLERANCE = '0.1'
 const Q112 = new BN(2).pow(new BN(112))
 const ETH = new BN(toBaseUnit('1', '18'))
 
-const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }]
+const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }, { "inputs": [], "name": "price0CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "price1CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'price_feed',
@@ -141,12 +141,70 @@ module.exports = {
         return averagePrice
     },
 
-    checkFusePrice: async function (chainId, pairAddress, price, toBlock) {
-        const fusePrice = await this.getSeed(chainId, pairAddress, 'fuse', toBlock)
-        const checkResult = this.isPriceToleranceOk(price.price0, fusePrice.price0, FUSE_PRICE_TOLERANCE)
+    makeBatchRequest: function (w3, calls) {
+        let batch = new w3.BatchRequest();
+
+        let promises = calls.map(call => {
+            return new Promise((res, rej) => {
+                let req = call.req.request(call.block, (err, data) => {
+                    if (err) rej(err);
+                    else res(data)
+                });
+                batch.add(req)
+            })
+        })
+        batch.execute()
+
+        return Promise.all(promises)
+    },
+
+    getFusePrice: async function (chainId, pairAddress, toBlock) {
+        const w3 = networksWeb3[chainId]
+        const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+        const seedBlockNumber = toBlock - networksBlocks[chainId]['fuse']
+        let [
+            price0CumulativeLast,
+            price1CumulativeLast,
+            to,
+            seedPrice0CumulativeLast,
+            seedPrice1CumulativeLast,
+            seed,
+        ] = await this.makeBatchRequest(w3, [
+            // reqs to get priceCumulativeLast of toBlock
+            { req: pair.methods.price0CumulativeLast().call, block: toBlock },
+            { req: pair.methods.price1CumulativeLast().call, block: toBlock },
+            { req: w3.eth.getBlock, block: toBlock },
+            // reqs to get priceCumulativeLast of seedBlock 
+            { req: pair.methods.price0CumulativeLast().call, block: seedBlockNumber },
+            { req: pair.methods.price1CumulativeLast().call, block: seedBlockNumber },
+            { req: w3.eth.getBlock, block: seedBlockNumber },
+        ])
+
+        const period = new BN(to.timestamp).sub(new BN(seed.timestamp)).abs()
+
         return {
-            isOk: checkResult.isOk,
-            priceDiffPercentage: checkResult.priceDiffPercentage,
+            price0: new BN(price0CumulativeLast).sub(new BN(seedPrice0CumulativeLast)).div(period),
+            price1: new BN(price1CumulativeLast).sub(new BN(seedPrice1CumulativeLast)).div(period),
+        }
+    },
+
+    checkFusePrice: async function (chainId, pairAddress, price, toBlock) {
+        const fusePrice = await this.getFusePrice(chainId, pairAddress, toBlock)
+        if (fusePrice.price0.eq(new BN(0)))
+            return {
+                isOk0: true,
+                isOk1: true,
+                priceDiffPercentage0: new BN(0),
+                priceDiffPercentage1: new BN(0),
+                block: fusePrice.blockNumber
+            }
+        const checkResult0 = this.isPriceToleranceOk(price.price0, fusePrice.price0, FUSE_PRICE_TOLERANCE)
+        const checkResult1 = this.isPriceToleranceOk(price.price1, Q112.mul(Q112).div(fusePrice.price0), FUSE_PRICE_TOLERANCE)
+        return {
+            isOk0: checkResult0.isOk,
+            isOk1: checkResult0.isOk,
+            priceDiffPercentage0: checkResult0.priceDiffPercentage,
+            priceDiffPercentage1: checkResult1.priceDiffPercentage,
             block: fusePrice.blockNumber
         }
     },
@@ -181,7 +239,7 @@ module.exports = {
                 const price = this.calculateAveragePrice(outlierRemoved, true)
                 // check for high price change in comparison with fuse price
                 const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
-                if (!fuse.isOk) throw { message: `High price gap (${fuse.priceDiffPercentage}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
+                if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
 
                 return {
                     chain: chain,
