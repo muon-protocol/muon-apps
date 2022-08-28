@@ -32,6 +32,19 @@ const ETH = new BN(toBaseUnit('1', '18'))
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }, { "inputs": [], "name": "price0CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "price1CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
+    CHAINS,
+    networksWeb3,
+    networksBlocks,
+    THRESHOLD,
+    PRICE_TOLERANCE,
+    FUSE_PRICE_TOLERANCE,
+    Q112,
+    ETH,
+    UNISWAPV2_PAIR_ABI,
+    BN,
+    toBaseUnit,
+
+
     APP_NAME: 'price_feed',
     APP_ID: 26,
     REMOTE_CALL_TIMEOUT: 30000,
