@@ -62,8 +62,37 @@ const testGetSyncEvents = async () => {
     assert(counter == numberOfEvents, `Difference in number of events ${counter} ${numberOfEvents}`)
 }
 
-const testCreatePrice = async() => {
-    throw 'error'
+const testCreatePrices = async () => {
+    const chainId = 250
+    const seed = {
+        price0: new BN('553937927341650325448601038471856'),
+        blockNumber: 14506224
+    }
+    const syncEventsMap = {
+        '14506230': {
+            returnValues: {
+                reserve0: '399657354506030558473',
+                reserve1: '50540763706853586504',
+            }
+        },
+
+        '14506280': {
+            returnValues: {
+                reserve0: '407073280527237345605',
+                reserve1: '49622740867094652888',
+            }
+        }
+    }
+
+    const prices = app.createPrices(chainId, seed, syncEventsMap)
+
+    assert(prices.length == networksBlocks[chainId]['seed'] + 1, `prices array has invalid length [${prices.length},${networksBlocks[chainId]['seed'] + 1}]`)
+    assert(prices[0] == seed.price0)
+    for (var i = 0; i < prices.length; i++) {
+        if (i < 14506230 - 14506224) assert(prices[i].eq(seed.price0), `gap1: ${prices[i]}, ${seed.price0}`)
+        else if (i < 14506280 - 14506224) assert(prices[i].eq(app.calculateInstantPrice('399657354506030558473', '50540763706853586504')), `gap2: ${prices[i]}, ${app.calculateInstantPrice('399657354506030558473', '50540763706853586504')}`)
+        else assert(prices[i].eq(app.calculateInstantPrice('407073280527237345605', '49622740867094652888')), `gap3: ${prices[i]}, ${app.calculateInstantPrice('407073280527237345605', '49622740867094652888')}`)
+    }
 }
 
 const testStd = async() => {
@@ -94,7 +123,7 @@ const testCheckFusePrice = async() => {
 const tests = [
     testGetSeed,
     testGetSyncEvents,
-    testCreatePrice,
+    testCreatePrices,
     testStd,
     testCalculateAveragePrice,
     testRemoveOutlierZScore,
