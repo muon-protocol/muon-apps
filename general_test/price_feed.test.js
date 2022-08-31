@@ -151,7 +151,24 @@ describe('Price Feed app unit test', () => {
         })
     })
 
-    it('Test removeOutlierZScore', async () => {
-        expect(false).toBe(true)
+    it('Test removeOutlier', async () => {
+        const numberOfOutliers = 5
+        const numberOfPrices = 100
+        const low = 50
+        const high = 60
+        const Q112 = new BN(2).pow(new BN(112))
+        const outlier = new BN(1e7).mul(Q112)
+        let prices = [...new Array(numberOfPrices - numberOfOutliers)]
+        prices.forEach((el, index) => {
+            prices[index] = new BN(low + (high - low) * Math.random()).mul(Q112)
+        });
+        [...new Array(numberOfOutliers)].forEach(() => prices.push(outlier))
+
+        const { outlierRemoved, removed } = app.removeOutlier(prices)
+
+        assert(
+            !outlierRemoved.includes(outlier) && removed.includes(outlier.toString()),
+            `${injectColor(BLUE, 'Outlier hasn\'t been removed')}`
+        )
     })
 })
