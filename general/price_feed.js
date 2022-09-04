@@ -222,6 +222,28 @@ module.exports = {
         }
     },
 
+    calculatePairPrice: async function (chainId, pairAddress, toBlock) {
+        // get seed price
+        const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
+        // get sync events that are emitted after seed block
+        const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
+        // create an array contains a price for each block mined after seed block 
+        const prices = this.createPrices(chainId, seed, syncEventsMap)
+        // remove outlier prices
+        const { outlierRemoved, removed } = this.removeOutlier(prices)
+        // calculate the average price
+        const price = this.calculateAveragePrice(outlierRemoved, true)
+        // check for high price change in comparison with fuse price
+        const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
+        if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
+
+        return {
+            price0: price.price0,
+            price1: price.price1,
+            removed
+        }
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -240,25 +262,13 @@ module.exports = {
                 if (!toBlock) toBlock = currentBlockNumber
                 else if (toBlock > currentBlockNumber) throw { message: 'Invalid Block Number' }
 
-                // get seed price
-                const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
-                // get sync events that are emitted after seed block
-                const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
-                // create an array contains a price for each block mined after seed block 
-                const prices = this.createPrices(chainId, seed, syncEventsMap)
-                // remove outlier prices
-                const { outlierRemoved, removed } = this.removeOutlier(prices)
-                // calculate the average price
-                const price = this.calculateAveragePrice(outlierRemoved, true)
-                // check for high price change in comparison with fuse price
-                const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
-                if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
+                const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairAddress, toBlock)
 
                 return {
                     chain: chain,
                     pairAddress: pairAddress,
-                    price0: price.price0.toString(),
-                    price1: price.price1.toString(),
+                    price0: price0.toString(),
+                    price1: price1.toString(),
                     removedOutliers: removed,
                     toBlock: toBlock,
                 }
