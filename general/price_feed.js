@@ -257,10 +257,13 @@ module.exports = {
                 if (!chain) throw { message: 'Invalid chain' }
 
                 const chainId = CHAINS[chain]
-                const w3 = networksWeb3[chainId]
-                const currentBlockNumber = await w3.eth.getBlockNumber()
-                if (!toBlock) toBlock = currentBlockNumber
-                else if (toBlock > currentBlockNumber) throw { message: 'Invalid Block Number' }
+                if (!request.data.result) {
+                    const w3 = networksWeb3[chainId]
+                    const currentBlockNumber = await w3.eth.getBlockNumber()
+                    if (!toBlock) toBlock = currentBlockNumber
+                    else if (toBlock > currentBlockNumber) throw { message: 'Invalid Block Number' }
+                }
+                else toBlock = request.data.result.toBlock
 
                 const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairAddress, toBlock)
 
@@ -288,22 +291,14 @@ module.exports = {
 
                 let { chain, pairAddress, price0, price1, toBlock } = result
 
-                // node1 result
-                let [expectedPrice0, expectedPrice1] = [request.data.result.price0, request.data.result.price1];
-                // check price difference between current node and node1
-                // throw error in case of high price difference between current node and node1
-                if (!this.isPriceToleranceOk(price0, expectedPrice0, PRICE_TOLERANCE).isOk)
-                    throw { message: 'Price threshold exceeded' }
-
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
                     { type: 'address', value: pairAddress },
-                    { type: 'uint256', value: expectedPrice0 },
-                    { type: 'uint256', value: expectedPrice1 },
+                    { type: 'uint256', value: price0 },
+                    { type: 'uint256', value: price1 },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp },
-                    //TODO: consider about difference in toBlock value of nodes results
-                    { type: 'uint256', value: request.data.result.toBlock },
+                    { type: 'uint256', value: toBlock },
                 ])
 
             }
