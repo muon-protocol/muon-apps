@@ -1,4 +1,4 @@
-const { toBaseUnit, soliditySha3, BN, ethCall } = MuonAppUtils
+const { soliditySha3, BN } = MuonAppUtils
 const { isPriceToleranceOk } = require('./price_feed')
 
 const CHAINS = {
@@ -8,17 +8,22 @@ const CHAINS = {
 
 const ROUTES = {
     [CHAINS.mainnet]: {
-        '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': ['0xEBFb684dD2b01E698ca6c14F10e4f289934a54D6']
+        '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': {
+            route: ['0xEBFb684dD2b01E698ca6c14F10e4f289934a54D6'],
+            reversed: [0]
+        }
     },
     [CHAINS.fantom]: {
-        '0xDE5ed76E7c05eC5e4572CfC88d1ACEA165109E44': ['0x2599Eba5fD1e49F294C76D034557948034d6C96E', '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D']
-    },
+        '0xDE5ed76E7c05eC5e4572CfC88d1ACEA165109E44': {
+            route: ['0x2599Eba5fD1e49F294C76D034557948034d6C96E', '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D'],
+            reversed: [1, 1]
+        },
+    }
 }
 
 const PRICE_TOLERANCE = '0.0005'
 const Q112 = new BN(2).pow(new BN(112))
 
-const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "token0", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "payable": false, "stateMutability": "view", "type": "function" }, { "constant": true, "inputs": [], "name": "token1", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "payable": false, "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'token_price_feed',
@@ -30,7 +35,7 @@ module.exports = {
         return ROUTES[chainId][token]
     },
 
-    getTokenPairPrice: async function (chain, pairAddress, token) {
+    getTokenPairPrice: async function (chain, pairAddress, reversed) {
         let request = {
             method: 'signature',
             data: {
@@ -39,18 +44,17 @@ module.exports = {
         }
 
         let pairPrice = await this.invoke("price_feed", "onRequest", request)
-        let token0 = await ethCall(pairAddress, 'token0', [], UNISWAPV2_PAIR_ABI, CHAINS[chain])
-        let token1 = await ethCall(pairAddress, 'token1', [], UNISWAPV2_PAIR_ABI, CHAINS[chain])
-        if (token == token0) return { price: new BN(pairPrice.price0), token: token1 }
-        return { price: new BN(pairPrice.price1), unitToken: token0 }
+        return new BN(reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0))
     },
 
-    calculatePrice: async function (chain, route, token) {
+    calculatePrice: async function (chain, route) {
         let price = Q112
-        let tokenPairPrice = { unitToken: token }
-        for (var pairAddress of route) {
-            tokenPairPrice = await this.getTokenPairPrice(chain, pairAddress, tokenPairPrice.unitToken)
-            price = price.mul(tokenPairPrice.price).div(Q112)
+        let tokenPairPrice
+        var zip = (a, b) => a.map((x, i) => [x, b[i]]);
+
+        for (let [pairAddress, reversed] of zip(route.route, route.reversed)) {
+            tokenPairPrice = await this.getTokenPairPrice(chain, pairAddress, reversed)
+            price = price.mul(tokenPairPrice).div(Q112)
         }
         return price
     },
@@ -73,12 +77,12 @@ module.exports = {
                 const route = this.getRoute(chainId, token)
                 if (!route) throw { message: 'Invalid token' }
                 // calculate price using the given route
-                const price = await this.calculatePrice(chain, route, token)
+                const price = await this.calculatePrice(chain, route)
 
                 return {
                     chain: chain,
                     token: token,
-                    route: route,
+                    route: route.route,
                     price: price.toString()
                 }
 
