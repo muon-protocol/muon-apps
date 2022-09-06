@@ -7,21 +7,12 @@ const {
     Q112
 } = PriceFeed
 
-const ROUTES = {
-    [CHAINS.mainnet]: {
-        '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': {
-            route: ['0xEBFb684dD2b01E698ca6c14F10e4f289934a54D6'],
-            reversed: [0]
-        }
-    },
-    [CHAINS.fantom]: {
-        '0xDE5ed76E7c05eC5e4572CfC88d1ACEA165109E44': {
-            route: ['0x2599Eba5fD1e49F294C76D034557948034d6C96E', '0xe7E90f5a767406efF87Fdad7EB07ef407922EC1D'],
-            reversed: [1, 1]
-        },
-    }
+const CONFIG_ADDRESSES = {
+    [CHAINS.mainnet]: '',
+    [CHAINS.fantom]: '',
 }
 
+const CONFIG_ABI = [{ "inputs": [{ "internalType": "address", "name": "token", "type": "address" }, { "internalType": "bool", "name": "dynamicWeight", "type": "bool" }], "name": "getRoutes", "outputs": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IOracleAggregator.Route[]", "name": "", "type": "tuple[]" }], "stateMutability": "view", "type": "function" },]
 
 module.exports = {
     ...PriceFeed,
@@ -31,8 +22,18 @@ module.exports = {
     REMOTE_CALL_TIMEOUT: 30000,
 
 
-    getRoute: function (chainId, token) {
-        return ROUTES[chainId][token]
+    getRoute: async function (chainId, token) {
+        const w3 = networksWeb3[chainId]
+        const config = new w3.eth.Contract(CONFIG_ABI, CONFIG_ADDRESSES[chainId])
+        const routes = await config.methods.getRoutes(token, true).call()
+        return routes.map((route) => {
+            return {
+                dex: route.dex,
+                path: route.path,
+                reversed: route.reversed,
+                weight: route.weight
+            }
+        })
     },
 
     getTokenPairPrice: async function (chainId, pairAddress, reversed, toBlock) {
@@ -40,16 +41,22 @@ module.exports = {
         return new BN(reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0))
     },
 
-    calculatePrice: async function (chainId, route, toBlock) {
-        let price = Q112
-        let tokenPairPrice
+    calculatePrice: async function (chainId, routes, toBlock) {
         var zip = (a, b) => a.map((x, i) => [x, b[i]]);
+        let tokenPairPrice
 
-        for (let [pairAddress, reversed] of zip(route.route, route.reversed)) {
-            tokenPairPrice = await this.getTokenPairPrice(chainId, pairAddress, reversed, toBlock)
-            price = price.mul(tokenPairPrice).div(Q112)
+        let sumTokenPrice = new BN(0)
+        let sumWeights = new BN(0)
+        for (let route of routes) {
+            let price = Q112
+            for (let [pairAddress, reversed] of zip(route.path, route.reversed)) {
+                tokenPairPrice = await this.getTokenPairPrice(chainId, pairAddress, reversed, toBlock)
+                price = price.mul(tokenPairPrice).div(Q112)
+            }
+            sumTokenPrice = sumTokenPrice.add(price.mul(new BN(route.weight)))
+            sumWeights = sumWeights.add(new BN(route.weight))
         }
-        return price
+        return sumTokenPrice.div(sumWeights)
     },
 
     onRequest: async function (request) {
@@ -71,15 +78,15 @@ module.exports = {
                 else toBlock = request.data.result.toBlock
 
                 // get token route for calculating price
-                const route = this.getRoute(chainId, token)
-                if (!route) throw { message: 'Invalid token' }
+                const routes = await this.getRoute(chainId, token)
+                if (!routes) throw { message: 'Invalid token' }
                 // calculate price using the given route
-                const price = await this.calculatePrice(chainId, route, toBlock)
+                const price = await this.calculatePrice(chainId, routes, toBlock)
 
                 return {
                     chain: chain,
                     token: token,
-                    route: route.route,
+                    routes: routes,
                     price: price.toString(),
                     toBlock: toBlock
                 }
@@ -97,12 +104,11 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, token, route, price } = result
+                let { chain, token, price } = result
 
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
                     { type: 'address', value: token },
-                    { type: 'address[]', value: route },
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp }
