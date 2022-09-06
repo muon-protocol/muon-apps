@@ -13,6 +13,7 @@ const CONFIG_ADDRESSES = {
 }
 
 const CONFIG_ABI = [{ "inputs": [{ "internalType": "address", "name": "token", "type": "address" }, { "internalType": "bool", "name": "dynamicWeight", "type": "bool" }], "name": "getRoutes", "outputs": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IOracleAggregator.Route[]", "name": "", "type": "tuple[]" }], "stateMutability": "view", "type": "function" },]
+const PRICE_GAP = toBaseUnit('0.01', 18)
 
 module.exports = {
     ...PriceFeed,
@@ -47,6 +48,7 @@ module.exports = {
 
         let sumTokenPrice = new BN(0)
         let sumWeights = new BN(0)
+        let prices = []
         for (let route of routes) {
             let price = Q112
             for (let [pairAddress, reversed] of zip(route.path, route.reversed)) {
@@ -55,7 +57,11 @@ module.exports = {
             }
             sumTokenPrice = sumTokenPrice.add(price.mul(new BN(route.weight)))
             sumWeights = sumWeights.add(new BN(route.weight))
+            prices.push(price)
         }
+        let [minPrice, maxPrice] = [BN.min(...prices), BN.max(...prices)]
+        if (maxPrice.sub(minPrice).mul(Q112).div(minPrice).gt(PRICE_GAP))
+            throw { message: `High price gap between route prices` }
         return sumTokenPrice.div(sumWeights)
     },
 
