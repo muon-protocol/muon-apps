@@ -24,7 +24,6 @@ const networksBlocks = {
 }
 
 const THRESHOLD = 2
-const PRICE_TOLERANCE = '0.0005'
 const FUSE_PRICE_TOLERANCE = '0.1'
 const Q112 = new BN(2).pow(new BN(112))
 const ETH = new BN(toBaseUnit('1', '18'))
@@ -36,7 +35,6 @@ module.exports = {
     networksWeb3,
     networksBlocks,
     THRESHOLD,
-    PRICE_TOLERANCE,
     FUSE_PRICE_TOLERANCE,
     Q112,
     ETH,
@@ -198,6 +196,7 @@ module.exports = {
         return {
             price0: new BN(price0CumulativeLast).sub(new BN(seedPrice0CumulativeLast)).div(period),
             price1: new BN(price1CumulativeLast).sub(new BN(seedPrice1CumulativeLast)).div(period),
+            blockNumber: seedBlockNumber
         }
     },
 
@@ -215,7 +214,7 @@ module.exports = {
         const checkResult1 = this.isPriceToleranceOk(price.price1, Q112.mul(Q112).div(fusePrice.price0), FUSE_PRICE_TOLERANCE)
         return {
             isOk0: checkResult0.isOk,
-            isOk1: checkResult0.isOk,
+            isOk1: checkResult1.isOk,
             priceDiffPercentage0: checkResult0.priceDiffPercentage,
             priceDiffPercentage1: checkResult1.priceDiffPercentage,
             block: fusePrice.blockNumber
