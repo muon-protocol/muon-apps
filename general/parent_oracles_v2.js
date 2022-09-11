@@ -640,7 +640,7 @@ module.exports = {
   },
 
   onRequest: async function (request) {
-    throw { message: `MuonApp disabled.` }
+    // throw { message: `MuonApp disabled.` }
     let {
       method,
       data: { params }
