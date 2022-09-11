@@ -90,7 +90,7 @@ module.exports = {
     if (
       new BN(priceDiff)
         .div(new BN(expectedPrice))
-        .gt(toBaseUnit(PRICE_TOLERANCE, '18'))
+        .gt(floatToBN(PRICE_TOLERANCE, 18))
     ) {
       return false
     }
