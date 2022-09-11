@@ -1,4 +1,4 @@
-const { axios, soliditySha3, floatToBN } = MuonAppUtils
+const { axios, soliditySha3, floatToBN, BN } = MuonAppUtils
 
 const PRICE_TOLERANCE = '0.05';
 
