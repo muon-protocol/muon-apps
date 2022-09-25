@@ -52,7 +52,7 @@ module.exports = {
         let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
         const priceDiffPercentage = new BN(priceDiff).mul(ETH).div(new BN(expectedPrice))
         return {
-            isOk: !priceDiffPercentage.gt(toBaseUnit(priceTolerance, '18')),
+            isOk: !priceDiffPercentage.gt(new BN(priceTolerance)),
             priceDiffPercentage: priceDiffPercentage.mul(new BN(100)).div(ETH)
         }
     },
@@ -200,7 +200,7 @@ module.exports = {
         }
     },
 
-    checkFusePrice: async function (chainId, pairAddress, price, toBlock) {
+    checkFusePrice: async function (chainId, pairAddress, price, fusePriceTolerance, toBlock) {
         const fusePrice = await this.getFusePrice(chainId, pairAddress, toBlock)
         if (fusePrice.price0.eq(new BN(0)))
             return {
@@ -210,8 +210,8 @@ module.exports = {
                 priceDiffPercentage1: new BN(0),
                 block: fusePrice.blockNumber
             }
-        const checkResult0 = this.isPriceToleranceOk(price.price0, fusePrice.price0, FUSE_PRICE_TOLERANCE)
-        const checkResult1 = this.isPriceToleranceOk(price.price1, Q112.mul(Q112).div(fusePrice.price0), FUSE_PRICE_TOLERANCE)
+        const checkResult0 = this.isPriceToleranceOk(price.price0, fusePrice.price0, fusePriceTolerance)
+        const checkResult1 = this.isPriceToleranceOk(price.price1, Q112.mul(Q112).div(fusePrice.price0), fusePriceTolerance)
         return {
             isOk0: checkResult0.isOk,
             isOk1: checkResult1.isOk,
@@ -221,7 +221,7 @@ module.exports = {
         }
     },
 
-    calculatePairPrice: async function (chainId, pairAddress, toBlock) {
+    calculatePairPrice: async function (chainId, pairAddress, fusePriceTolerance, toBlock) {
         // get seed price
         const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
         // get sync events that are emitted after seed block
@@ -233,7 +233,7 @@ module.exports = {
         // calculate the average price
         const price = this.calculateAveragePrice(outlierRemoved, true)
         // check for high price change in comparison with fuse price
-        const fuse = await this.checkFusePrice(chainId, pairAddress, price, toBlock)
+        const fuse = await this.checkFusePrice(chainId, pairAddress, price, fusePriceTolerance, toBlock)
         if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
 
         return {
@@ -264,7 +264,7 @@ module.exports = {
                 }
                 else toBlock = request.data.result.toBlock
 
-                const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairAddress, toBlock)
+                const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairAddress, FUSE_PRICE_TOLERANCE, toBlock)
 
                 return {
                     chain: chain,
