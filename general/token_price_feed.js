@@ -63,9 +63,11 @@ module.exports = {
             sumWeights = sumWeights.add(new BN(route.weight))
             prices.push(price)
         }
-        let [minPrice, maxPrice] = [BN.min(...prices), BN.max(...prices)]
-        if (maxPrice.sub(minPrice).mul(ETH).div(minPrice).gt(new BN(validPriceGap)))
-            throw { message: `High price gap between route prices (${minPrice}, ${maxPrice})` }
+        if (prices.length > 1) {
+            let [minPrice, maxPrice] = [BN.min(...prices), BN.max(...prices)]
+            if (!this.isPriceToleranceOk(maxPrice, minPrice, validPriceGap).isOk)
+                throw { message: `High price gap between route prices (${minPrice}, ${maxPrice})` }
+        }
         return sumTokenPrice.div(sumWeights)
     },
 
