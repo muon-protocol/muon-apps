@@ -109,21 +109,18 @@ module.exports = {
     removeOutlierZScore: function (prices) {
         const mean = this.calculateAveragePrice(prices)
         // calculate std(standard deviation)
-        const std0 = this.std(prices)
-        if (std0 == 0) return prices
+        const std = this.std(prices)
+        if (std == 0) return prices
 
-        let result = []
         // Z score = (price - mean) / std
         // price is not reliable if Z score < threshold
-        prices.forEach((price) => Math.abs(price - mean) / std0 < THRESHOLD ? result.push(price) : {})
-        return result
-
+        return prices.filter((price) => Math.abs(price - mean) / std < THRESHOLD)
     },
 
     removeOutlier: function (prices) {
         const logPrices = []
         prices.forEach((price) => {
-            logPrices.push(Number(Math.log(price).toFixed(3)));
+            logPrices.push(Math.log(price));
         })
         let logOutlierRemoved = this.removeOutlierZScore(logPrices)
 

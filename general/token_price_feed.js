@@ -13,6 +13,11 @@ const CONFIG_ADDRESSES = {
     [CHAINS.fantom]: '',
 }
 
+const confirmationBlocks = {
+    [CHAINS.mainnet]: 12,
+    [CHAINS.fantom]: 1,
+}
+
 const CONFIG_ABI = [{ "inputs": [{ "internalType": "address", "name": "token", "type": "address" }, { "internalType": "bool", "name": "dynamicWeight", "type": "bool" }], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IOracleAggregator.Config", "name": "config", "type": "tuple" }], "internalType": "struct IOracleAggregator.Route[]", "name": "routes", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
@@ -91,7 +96,7 @@ module.exports = {
                 const chainId = CHAINS[chain]
                 const w3 = networksWeb3[chainId]
                 let toBlock
-                if (!request.data.result) toBlock = await w3.eth.getBlockNumber()
+                if (!request.data.result) toBlock = await w3.eth.getBlockNumber() - confirmationBlocks[chainId]
                 else toBlock = request.data.result.toBlock
 
                 // get token route for calculating price
@@ -121,13 +126,14 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, token, price } = result
+                let { chain, token, price, toBlock } = result
 
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
                     { type: 'address', value: token },
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: String(CHAINS[chain]) },
+                    { type: 'uint256', value: toBlock },
                     { type: 'uint256', value: request.data.timestamp }
                 ])
 
