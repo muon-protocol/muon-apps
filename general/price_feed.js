@@ -12,15 +12,9 @@ const networksWeb3 = {
     [CHAINS.fantom]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM)),
 }
 
-const networksBlocks = {
-    [CHAINS.mainnet]: {
-        'seed': 135,
-        'fuse': 6467,
-    },
-    [CHAINS.fantom]: {
-        'seed': 1475,
-        'fuse': 70819,
-    }
+const networksBlocksPerMinute = {
+    [CHAINS.mainnet]: 5,
+    [CHAINS.fantom]: 52,
 }
 
 const THRESHOLD = 2
@@ -33,7 +27,6 @@ const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserv
 module.exports = {
     CHAINS,
     networksWeb3,
-    networksBlocks,
     THRESHOLD,
     FUSE_PRICE_TOLERANCE,
     Q112,
@@ -64,9 +57,9 @@ module.exports = {
         return price0
     },
 
-    getSeed: async function (chainId, pairAddress, period, toBlock) {
+    getSeed: async function (chainId, pairAddress, blocksToSeed, toBlock) {
         const w3 = networksWeb3[chainId]
-        const seedBlockNumber = toBlock - networksBlocks[chainId][period]
+        const seedBlockNumber = toBlock - blocksToSeed
 
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
@@ -74,12 +67,12 @@ module.exports = {
         return { price0: price0, blockNumber: seedBlockNumber }
     },
 
-    getSyncEvents: async function (chainId, seedBlockNumber, pairAddress) {
+    getSyncEvents: async function (chainId, seedBlockNumber, pairAddress, blocksToSeed) {
         const w3 = networksWeb3[chainId]
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const options = {
             fromBlock: seedBlockNumber + 1,
-            toBlock: seedBlockNumber + networksBlocks[chainId]['seed']
+            toBlock: seedBlockNumber + blocksToSeed
         }
         const syncEvents = await pair.getPastEvents("Sync", options)
         let syncEventsMap = {}
@@ -88,12 +81,12 @@ module.exports = {
         return syncEventsMap
     },
 
-    createPrices: function (chainId, seed, syncEventsMap) {
+    createPrices: function (chainId, seed, syncEventsMap, blocksToSeed) {
 
         let prices = [seed.price0]
         let price = seed.price0
         // fill prices and consider a price for each block between seed and current block
-        for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + networksBlocks[chainId]['seed']; blockNumber++) {
+        for (let blockNumber = seed.blockNumber + 1; blockNumber <= seed.blockNumber + blocksToSeed; blockNumber++) {
             // use block event price if there is an event for the block
             // otherwise use last event price
             if (syncEventsMap[blockNumber]) {
@@ -169,10 +162,10 @@ module.exports = {
         return Promise.all(promises)
     },
 
-    getFusePrice: async function (chainId, pairAddress, toBlock) {
+    getFusePrice: async function (chainId, pairAddress, toBlock, blocksToFuse) {
         const w3 = networksWeb3[chainId]
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
-        const seedBlockNumber = toBlock - networksBlocks[chainId]['fuse']
+        const seedBlockNumber = toBlock - blocksToFuse
         let [
             price0CumulativeLast,
             price1CumulativeLast,
@@ -200,8 +193,8 @@ module.exports = {
         }
     },
 
-    checkFusePrice: async function (chainId, pairAddress, price, fusePriceTolerance, toBlock) {
-        const fusePrice = await this.getFusePrice(chainId, pairAddress, toBlock)
+    checkFusePrice: async function (chainId, pairAddress, price, fusePriceTolerance, blocksToFuse, toBlock) {
+        const fusePrice = await this.getFusePrice(chainId, pairAddress, toBlock, blocksToFuse)
         if (fusePrice.price0.eq(new BN(0)))
             return {
                 isOk0: true,
@@ -221,11 +214,13 @@ module.exports = {
         }
     },
 
-    calculatePairPrice: async function (chainId, pairAddress, fusePriceTolerance, toBlock) {
+    calculatePairPrice: async function (chainId, pair, toBlock) {
+        const blocksToSeed = networksBlocksPerMinute[chainId] * pair.minutesToSeed
+        const blocksToFuse = networksBlocksPerMinute[chainId] * pair.minutesToFuse
         // get seed price
-        const seed = await this.getSeed(chainId, pairAddress, 'seed', toBlock)
+        const seed = await this.getSeed(chainId, pair.address, blocksToSeed, toBlock)
         // get sync events that are emitted after seed block
-        const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pairAddress)
+        const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pair.address, blocksToSeed)
         // create an array contains a price for each block mined after seed block 
         const prices = this.createPrices(chainId, seed, syncEventsMap)
         // remove outlier prices
@@ -233,8 +228,8 @@ module.exports = {
         // calculate the average price
         const price = this.calculateAveragePrice(outlierRemoved, true)
         // check for high price change in comparison with fuse price
-        const fuse = await this.checkFusePrice(chainId, pairAddress, price, fusePriceTolerance, toBlock)
-        if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pairAddress} in block range ${fuse.block} - ${seed.blockNumber + networksBlocks[chainId]['seed']}` }
+        const fuse = await this.checkFusePrice(chainId, pair.address, price, pair.fusePriceTolerance, blocksToFuse, toBlock)
+        if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pair.address} in block range ${fuse.block} - ${seed.blockNumber + blocksToFuse}` }
 
         return {
             price0: price.price0,
