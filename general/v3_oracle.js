@@ -27,11 +27,29 @@ module.exports = {
     },
 
     getSymbolPrice: async function (connection, symbol) {
-
+        const price = await connection.getTick(symbol);
+        return price;
     },
 
     getPrices: async function (connection, symbols) {
+        let prices = {};
+        const promises = [];
 
+        symbols.forEach((symbol) => {
+            promises.push(this.getSymbolPrice(connection, symbol));
+        });
+
+        const result = await Promise.all(promises);
+
+        result.forEach((tick) => {
+            prices[tick.symbol] = {
+                bid: toBaseUnit(String(tick.bid), '18').toString(),
+                ask: toBaseUnit(String(tick.ask), '18').toString(),
+                // last: toBaseUnit(String(tick.last), '18').toString(),
+            };
+        });
+
+        return prices;
     },
 
     onRequest: async function (request) {
