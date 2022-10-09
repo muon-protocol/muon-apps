@@ -96,8 +96,17 @@ module.exports = {
                 const chainId = CHAINS[chain]
                 const w3 = networksWeb3[chainId]
                 let toBlock
-                if (!request.data.result) toBlock = await w3.eth.getBlockNumber() - confirmationBlocks[chainId]
-                else toBlock = request.data.result.toBlock
+                let toBlockTimestamp
+                if (!request.data.result) {
+                    const latestBlock = await w3.eth.getBlockNumber()
+                    const earlierBlock = await w3.eth.getBlock(latestBlock - confirmationBlocks[chainId])
+                    toBlock = earlierBlock.number
+                    toBlockTimestamp = earlierBlock.timestamp
+                }
+                else {
+                    toBlock = request.data.result.toBlock
+                    toBlockTimestamp = request.data.result.timestamp
+                }
 
                 // get token route for calculating price
                 const routes = await this.getRoute(chainId, token)
@@ -110,7 +119,8 @@ module.exports = {
                     token: token,
                     routes: routes,
                     price: price.toString(),
-                    toBlock: toBlock
+                    toBlock: toBlock,
+                    timestamp: toBlockTimestamp
                 }
 
             default:
@@ -126,7 +136,7 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, token, price, toBlock } = result
+                let { chain, token, price, toBlock, timestamp } = result
 
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
@@ -134,7 +144,7 @@ module.exports = {
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: toBlock },
-                    { type: 'uint256', value: request.data.timestamp }
+                    { type: 'uint256', value: timestamp }
                 ])
 
             }
