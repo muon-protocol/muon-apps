@@ -1,39 +1,68 @@
-const { BN, soliditySha3, toBaseUnit } = MuonAppUtils
+const { json } = require('body-parser');
 
-const CHAINS = {
-    mainnet: 1,
-    fantom: 250,
-}
+const { BN, toBaseUnit } = MuonAppUtils;
+const MetaApi = require('metaapi.cloud-sdk').default;
 
-const ETH = new BN(toBaseUnit('1', '18'))
+const token = process.env.TOKEN;
+const accountId = process.env.ACCOUNT_ID;
+
+const api = new MetaApi(token);
+
 
 module.exports = {
     APP_NAME: 'v3_oracle',
     APP_ID: 300,
 
+    getSymbols: async function (positionIds) {
+
+    },
+
+    getConnection: async function () {
+
+    },
+
+    getSymbolPrice: async function (connection, symbol) {
+
+    },
+
+    getPrices: async function (connection, symbols) {
+
+    },
+
     onRequest: async function (request) {
         let {
             method,
             data: { params }
-        } = request
+        } = request;
         switch (method) {
             case 'signature':
-                let { chain } = params
-                const chainId = CHAINS[chain]
-                const marketPrices = [
-                    {
-                        marketId: 1,
-                        bidPrice: ETH,
-                        askPrice: ETH,
-                    },
-                ]
+                let { positionIds } = params;
+
+                positionIds = JSON.parse(positionIds);
+                positionIds.forEach((id) => {
+                    if (!Number.isInteger(id)) throw { message: `Invalid positionId` };
+                });
+
+                const { positions, symbols } = await this.getSymbols(positionIds);
+                const connection = await this.getConnection();
+                const prices = await this.getPrices(connection, symbols);
+
+                let bidPrices = [];
+                let askPrices = [];
+                positions.forEach((position) => {
+                    const price = prices[position.symbol];
+                    bidPrices.push(price.bid);
+                    askPrices.push(price.ask);
+                });
+
                 return {
-                    chainId, // uint256
-                    marketPrices,
-                }
+                    positionIds,
+                    bidPrices,
+                    askPrices
+                };
 
             default:
-                throw { message: `Unknown method ${params}` }
+                throw { message: `Unknown method ${params}` };
         }
     },
 
@@ -47,26 +76,17 @@ module.exports = {
         let { method } = request;
         switch (method) {
             case 'signature':
-                let { chainId, marketPrices } = result;
-                let marketIds = []
-                let bidPrices = []
-                let askPrices = []
-                marketPrices.forEach((marketPrice) => {
-                    marketIds.push(marketPrice.marketId)
-                    bidPrices.push(marketPrice.bidPrice)
-                    askPrices.push(marketPrice.askPrice)
-                })
+                let { positionIds, bidPrices, askPrices } = request.data.result;
 
                 return [
                     { type: 'uint32', value: this.APP_ID },
-                    { type: 'uint256', value: chainId },
-                    { type: 'uint256[]', value: marketIds },
+                    { type: 'uint256[]', value: positionIds },
                     { type: 'uint256[]', value: bidPrices },
                     { type: 'uint256[]', value: askPrices },
                     { type: 'uint256', value: request.data.timestamp },
-                ]
+                ];
             default:
-                break
+                break;
         }
     }
 }
