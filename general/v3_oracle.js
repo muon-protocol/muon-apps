@@ -11,7 +11,6 @@ const api = new MetaApi(token);
 
 module.exports = {
     APP_NAME: 'v3_oracle',
-    APP_ID: 300,
 
     getSymbols: async function (positionIds) {
 
@@ -102,7 +101,6 @@ module.exports = {
                 let { positionIds, bidPrices, askPrices } = request.data.result;
 
                 return [
-                    { type: 'uint32', value: this.APP_ID },
                     { type: 'uint256[]', value: positionIds },
                     { type: 'uint256[]', value: bidPrices },
                     { type: 'uint256[]', value: askPrices },
