@@ -18,7 +18,12 @@ module.exports = {
     },
 
     getConnection: async function () {
+        let account = await api.metatraderAccountApi.getAccount(accountId);
+        const connection = account.getRPCConnection();
+        await connection.connect();
+        await connection.waitSynchronized();
 
+        return connection;
     },
 
     getSymbolPrice: async function (connection, symbol) {
