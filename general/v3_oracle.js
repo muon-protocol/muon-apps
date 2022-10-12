@@ -1,6 +1,6 @@
 const { json } = require('body-parser');
 
-const { BN, toBaseUnit } = MuonAppUtils;
+const { BN, toBaseUnit, ethCall } = MuonAppUtils;
 const MetaApi = require('metaapi.cloud-sdk').default;
 
 const token = process.env.TOKEN;
@@ -8,12 +8,29 @@ const accountId = process.env.ACCOUNT_ID;
 
 const api = new MetaApi(token);
 
+const ABI = [{ "inputs": [{ "internalType": "uint256", "name": "positionId", "type": "uint256" }], "name": "getMarketFromPositionId", "outputs": [{ "components": [{ "internalType": "uint256", "name": "_marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "enum TradingSession", "name": "tradingSession", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }], "internalType": "struct Market", "name": "market", "type": "tuple" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256[]", "name": "positionIds", "type": "uint256[]" }], "name": "getMarketsFromPositionIds", "outputs": [{ "components": [{ "internalType": "uint256", "name": "_marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "enum TradingSession", "name": "tradingSession", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }], "internalType": "struct Market[]", "name": "markets", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
+const ADDRESS = '0xE7f6e42e3b9ea3B082B4595D0363Cb58a9D1AE84';
+
+const CHAINS = {
+    fantom: 250,
+};
+
 
 module.exports = {
     APP_NAME: 'v3_oracle',
 
     getSymbols: async function (positionIds) {
-
+        const markets = await ethCall(ADDRESS, 'getMarketsFromPositionIds', [positionIds], ABI, CHAINS.fantom);
+        const positions = [];
+        const symbols = new Set();
+        markets.forEach((market, i) => {
+            positions.push({
+                positionId: positionIds[i],
+                symbol: market.symbol
+            });
+            symbols.add(market.symbol);
+        });
+        return { positions, symbols };
     },
 
     getConnection: async function () {
