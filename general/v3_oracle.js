@@ -117,10 +117,22 @@ module.exports = {
             case 'signature':
                 let { positionIds, bidPrices, askPrices } = request.data.result;
 
+                let res;
+                if (positionIds.length > 1)
+                    res = [
+                        { type: 'uint256[]', value: positionIds },
+                        { type: 'uint256[]', value: bidPrices },
+                        { type: 'uint256[]', value: askPrices }
+                    ];
+                else
+                    res = [
+                        { type: 'uint256', value: positionIds[0] },
+                        { type: 'uint256', value: bidPrices[0] },
+                        { type: 'uint256', value: askPrices[0] }
+                    ];
+
                 return [
-                    { type: 'uint256[]', value: positionIds },
-                    { type: 'uint256[]', value: bidPrices },
-                    { type: 'uint256[]', value: askPrices },
+                    ...res,
                     { type: 'uint256', value: request.data.timestamp },
                 ];
             default:
