@@ -1,15 +1,7 @@
-const { BN, soliditySha3, toBaseUnit } = MuonAppUtils
-
-const CHAINS = {
-    mainnet: 1,
-    fantom: 250,
-}
-
-const ETH = new BN(toBaseUnit('1', '18'))
+const { BN, toBaseUnit } = MuonAppUtils
 
 module.exports = {
     APP_NAME: 'v3_oracle',
-    APP_ID: 300,
 
     onRequest: async function (request) {
         let {
@@ -18,18 +10,18 @@ module.exports = {
         } = request
         switch (method) {
             case 'signature':
-                let { chain } = params
-                const chainId = CHAINS[chain]
-                const marketPrices = [
-                    {
-                        marketId: 1,
-                        bidPrice: ETH,
-                        askPrice: ETH,
-                    },
-                ]
+                let { positionIds, bidPrices, askPrices, hashTimestamp } = params
+
+                positionIds = JSON.parse(positionIds)
+                bidPrices = JSON.parse(bidPrices)
+                askPrices = JSON.parse(askPrices)
+                if (hashTimestamp) hashTimestamp = JSON.parse(hashTimestamp)
+
                 return {
-                    chainId, // uint256
-                    marketPrices,
+                    positionIds,
+                    bidPrices,
+                    askPrices,
+                    hashTimestamp,
                 }
 
             default:
@@ -47,23 +39,14 @@ module.exports = {
         let { method } = request;
         switch (method) {
             case 'signature':
-                let { chainId, marketPrices } = result;
-                let marketIds = []
-                let bidPrices = []
-                let askPrices = []
-                marketPrices.forEach((marketPrice) => {
-                    marketIds.push(marketPrice.marketId)
-                    bidPrices.push(marketPrice.bidPrice)
-                    askPrices.push(marketPrice.askPrice)
-                })
-
+                let { positionIds, bidPrices, askPrices, hashTimestamp } = result;
                 return [
-                    { type: 'uint32', value: this.APP_ID },
-                    { type: 'uint256', value: chainId },
-                    { type: 'uint256[]', value: marketIds },
+                    { type: 'uint256[]', value: positionIds },
                     { type: 'uint256[]', value: bidPrices },
                     { type: 'uint256[]', value: askPrices },
-                    { type: 'uint256', value: request.data.timestamp },
+                    ...(hashTimestamp == undefined || hashTimestamp == true
+                        ? [{ type: 'uint256', value: request.data.timestamp }]
+                        : [])
                 ]
             default:
                 break
