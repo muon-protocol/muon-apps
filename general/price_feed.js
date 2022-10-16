@@ -5,16 +5,19 @@ const HttpProvider = Web3.providers.HttpProvider
 const CHAINS = {
     mainnet: 1,
     fantom: 250,
+    polygon: 137,
 }
 
 const networksWeb3 = {
     [CHAINS.mainnet]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_ETH)),
     [CHAINS.fantom]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM)),
+    [CHAINS.polygon]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_POLYGON)),
 }
 
 const networksBlocksPerMinute = {
     [CHAINS.mainnet]: 5,
     [CHAINS.fantom]: 52,
+    [CHAINS.polygon]: 29,
 }
 
 const THRESHOLD = 2
