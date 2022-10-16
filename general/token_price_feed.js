@@ -27,9 +27,11 @@ module.exports = {
         const w3 = networksWeb3[CHAINS.fantom]
         const configContract = new w3.eth.Contract(CONFIG_ABI, config)
         let routes = await configContract.methods.getRoutes().call();
-        return {
+        const chainIds = new Set()
+        routes = {
             validPriceGap: routes.validPriceGap_,
             routes: routes.routes_.map((route) => {
+                chainIds.add(route.config.chainId)
                 return {
                     chainId: route.config.chainId,
                     dex: route.dex,
@@ -46,6 +48,8 @@ module.exports = {
                 }
             })
         }
+
+        return { routes, chainIds }
     },
 
     getTokenPairPrice: async function (chainId, pair, toBlock) {
@@ -77,6 +81,21 @@ module.exports = {
         return sumTokenPrice.div(sumWeights)
     },
 
+    getReliableBlock: async function (chainId) {
+        const w3 = networksWeb3[chainId]
+        const latestBlock = await w3.eth.getBlockNumber()
+        const earlierBlock = latestBlock - confirmationBlocks[chainId]
+        return earlierBlock
+    },
+
+    prepareToBlocks: async function (chainIds) {
+        const toBlocks = {}
+        for (let chainId of chainIds) {
+            toBlocks[chainId] = await this.getReliableBlock(chainId)
+        }
+
+        return toBlocks
+    },
 
     getEarliestBlockTimestamp: async function (toBlocks) {
 
@@ -94,13 +113,22 @@ module.exports = {
                 let { config, toBlocks } = params
 
                 // get token route for calculating price
-                const routes = await this.getRoute(chainId, token)
-                if (!routes) throw { message: 'Invalid token' }
+                const { routes, chainIds } = await this.getRoute(config)
+                if (!routes) throw { message: 'Invalid config' }
+
+                // prepare toBlocks 
+                if (!toBlocks) {
+                    if (!request.data.result)
+                        toBlocks = await this.prepareToBlocks(chainIds)
+                    else
+                        toBlocks = request.data.result.toBlocks
+                }
+
                 // calculate price using the given route
                 const price = await this.calculatePrice(routes.validPriceGap, routes.routes, toBlocks)
 
                 // get earliest block timestamp
-                const timestamp = await this.getEarliestBlockTimestamp(toBlocks)
+                const timestamp = await this.getEarliestBlockTimestamp(chainIds, toBlocks)
 
                 return {
                     config: config,
