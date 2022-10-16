@@ -1,4 +1,4 @@
-const { soliditySha3, BN } = MuonAppUtils
+const { BN } = MuonAppUtils
 const PriceFeed = require('./price_feed')
 
 const {
@@ -19,9 +19,6 @@ module.exports = {
     ...PriceFeed,
 
     APP_NAME: 'token_price_feed',
-    APP_ID: 100,
-    REMOTE_CALL_TIMEOUT: 30000,
-
 
     getRoute: async function (config) {
         const w3 = networksWeb3[CHAINS.fantom]
@@ -154,26 +151,28 @@ module.exports = {
         }
     },
 
-    hashRequestResult: function (request, result) {
-        let {
-            method,
-            data: { params }
-        } = request
+    /**
+     * List of the parameters that need to be signed. 
+     * APP_ID, reqId will be added by the
+     * Muon Core and [APP_ID, reqId, … signParams]
+     * should be verified on chain.
+     */
+    signParams: function (request, result) {
+        let { method } = request
         switch (method) {
             case 'signature': {
 
                 let { config, price, timestamp } = result
 
-                return soliditySha3([
-                    { type: 'uint32', value: this.APP_ID },
+                return [
                     { type: 'address', value: config },
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: timestamp }
-                ])
+                ]
 
             }
             default:
-                return null
+                break
         }
     }
 }

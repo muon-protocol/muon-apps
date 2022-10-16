@@ -1,4 +1,4 @@
-const { toBaseUnit, soliditySha3, BN, Web3 } = MuonAppUtils
+const { toBaseUnit, BN, Web3 } = MuonAppUtils
 
 const HttpProvider = Web3.providers.HttpProvider
 
@@ -37,9 +37,6 @@ module.exports = {
 
 
     APP_NAME: 'price_feed',
-    APP_ID: 26,
-    REMOTE_CALL_TIMEOUT: 30000,
-
 
     isPriceToleranceOk: function (price, expectedPrice, priceTolerance) {
         let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
@@ -272,29 +269,31 @@ module.exports = {
         }
     },
 
-    hashRequestResult: function (request, result) {
-        let {
-            method,
-            data: { params }
-        } = request
+    /**
+     * List of the parameters that need to be signed. 
+     * APP_ID, reqId will be added by the
+     * Muon Core and [APP_ID, reqId, … signParams]
+     * should be verified on chain.
+     */
+    signParams: function (request, result) {
+        let { method } = request
         switch (method) {
             case 'signature': {
 
                 let { chain, pairAddress, price0, price1, toBlock } = result
 
-                return soliditySha3([
-                    { type: 'uint32', value: this.APP_ID },
+                return [
                     { type: 'address', value: pairAddress },
                     { type: 'uint256', value: price0 },
                     { type: 'uint256', value: price1 },
                     { type: 'uint256', value: String(CHAINS[chain]) },
                     { type: 'uint256', value: request.data.timestamp },
                     { type: 'uint256', value: toBlock },
-                ])
+                ]
 
             }
             default:
-                return null
+                break
         }
     }
 }
