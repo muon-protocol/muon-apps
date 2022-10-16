@@ -1,11 +1,9 @@
-const { BN } = MuonAppUtils
+const { ethCall, ethGetBlock, ethGetBlockNumber, BN } = MuonAppUtils
 const PriceFeed = require('./price_feed')
 
 const {
     CHAINS,
-    networksWeb3,
     Q112,
-    ETH
 } = PriceFeed
 
 const confirmationBlocks = {
@@ -21,9 +19,7 @@ module.exports = {
     APP_NAME: 'token_price_feed',
 
     getRoute: async function (config) {
-        const w3 = networksWeb3[CHAINS.fantom]
-        const configContract = new w3.eth.Contract(CONFIG_ABI, config)
-        let routes = await configContract.methods.getRoutes().call();
+        let routes = await ethCall(config, 'getRoutes', [], CONFIG_ABI, CHAINS.fantom)
         const chainIds = new Set()
         routes = {
             validPriceGap: routes.validPriceGap_,
@@ -79,8 +75,7 @@ module.exports = {
     },
 
     getReliableBlock: async function (chainId) {
-        const w3 = networksWeb3[chainId]
-        const latestBlock = await w3.eth.getBlockNumber()
+        const latestBlock = await ethGetBlockNumber(chainId)
         const earlierBlock = latestBlock - confirmationBlocks[chainId]
         return earlierBlock
     },
@@ -97,8 +92,7 @@ module.exports = {
     getEarliestBlockTimestamp: async function (chainIds, toBlocks) {
         const promises = []
         for (const chainId of chainIds) {
-            const w3 = networksWeb3[chainId]
-            promises.push(w3.eth.getBlock(toBlocks[chainId]))
+            promises.push(ethGetBlock(chainId, toBlocks[chainId]))
         }
 
         const blocks = await Promise.all(promises)
