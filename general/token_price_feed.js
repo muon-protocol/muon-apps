@@ -97,8 +97,19 @@ module.exports = {
         return toBlocks
     },
 
-    getEarliestBlockTimestamp: async function (toBlocks) {
+    getEarliestBlockTimestamp: async function (chainIds, toBlocks) {
+        const promises = []
+        for (const chainId of chainIds) {
+            const w3 = networksWeb3[chainId]
+            promises.push(w3.eth.getBlock(toBlocks[chainId]))
+        }
 
+        const blocks = await Promise.all(promises)
+        const timestamps = []
+        blocks.forEach((block) => {
+            timestamps.push(block.timestamp)
+        })
+        return Math.min(...timestamps)
     },
 
     onRequest: async function (request) {
