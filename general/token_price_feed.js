@@ -6,9 +6,9 @@ const {
     Q112,
 } = PriceFeed
 
-const confirmationBlocks = {
-    [CHAINS.mainnet]: 12,
-    [CHAINS.fantom]: 1,
+const blocksToAvoidReorg = {
+    [CHAINS.mainnet]: 3,
+    [CHAINS.fantom]: 26,
 }
 
 const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
@@ -76,7 +76,7 @@ module.exports = {
 
     getReliableBlock: async function (chainId) {
         const latestBlock = await ethGetBlockNumber(chainId)
-        const earlierBlock = latestBlock - confirmationBlocks[chainId]
+        const earlierBlock = latestBlock - blocksToAvoidReorg[chainId]
         return earlierBlock
     },
 
