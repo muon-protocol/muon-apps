@@ -8,17 +8,12 @@ const {
     ETH
 } = PriceFeed
 
-const CONFIG_ADDRESSES = {
-    [CHAINS.mainnet]: '',
-    [CHAINS.fantom]: '',
-}
-
 const confirmationBlocks = {
     [CHAINS.mainnet]: 12,
     [CHAINS.fantom]: 1,
 }
 
-const CONFIG_ABI = [{ "inputs": [{ "internalType": "address", "name": "token", "type": "address" }, { "internalType": "bool", "name": "dynamicWeight", "type": "bool" }], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IOracleAggregator.Config", "name": "config", "type": "tuple" }], "internalType": "struct IOracleAggregator.Route[]", "name": "routes", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
+const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     ...PriceFeed,
@@ -28,14 +23,15 @@ module.exports = {
     REMOTE_CALL_TIMEOUT: 30000,
 
 
-    getRoute: async function (chainId, token) {
-        const w3 = networksWeb3[chainId]
-        const config = new w3.eth.Contract(CONFIG_ABI, CONFIG_ADDRESSES[chainId])
-        const routes = await config.methods.getRoutes(token, true).call();
+    getRoute: async function (config) {
+        const w3 = networksWeb3[CHAINS.fantom]
+        const configContract = new w3.eth.Contract(CONFIG_ABI, config)
+        let routes = await configContract.methods.getRoutes().call();
         return {
-            validPriceGap: routes.validPriceGap,
-            routes: routes.routes.map((route) => {
+            validPriceGap: routes.validPriceGap_,
+            routes: routes.routes_.map((route) => {
                 return {
+                    chainId: route.config.chainId,
                     dex: route.dex,
                     path: route.path.map((address, i) => {
                         return {
@@ -57,7 +53,7 @@ module.exports = {
         return new BN(pair.reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0))
     },
 
-    calculatePrice: async function (chainId, validPriceGap, routes, toBlock) {
+    calculatePrice: async function (validPriceGap, routes, toBlocks) {
         let tokenPairPrice
         let sumTokenPrice = new BN(0)
         let sumWeights = new BN(0)
@@ -66,7 +62,7 @@ module.exports = {
         for (let route of routes) {
             let price = Q112
             for (let pair of route.path) {
-                tokenPairPrice = await this.getTokenPairPrice(chainId, pair, toBlock)
+                tokenPairPrice = await this.getTokenPairPrice(route.chainId, pair, toBlocks[route.chainId])
                 price = price.mul(tokenPairPrice).div(Q112)
             }
             sumTokenPrice = sumTokenPrice.add(price.mul(new BN(route.weight)))
@@ -81,6 +77,11 @@ module.exports = {
         return sumTokenPrice.div(sumWeights)
     },
 
+
+    getEarliestBlockTimestamp: async function (toBlocks) {
+
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -90,37 +91,23 @@ module.exports = {
         switch (method) {
             case 'signature':
 
-                let { chain, token } = params
-                if (!chain) throw { message: 'Invalid chain' }
-
-                const chainId = CHAINS[chain]
-                const w3 = networksWeb3[chainId]
-                let toBlock
-                let toBlockTimestamp
-                if (!request.data.result) {
-                    const latestBlock = await w3.eth.getBlockNumber()
-                    const earlierBlock = await w3.eth.getBlock(latestBlock - confirmationBlocks[chainId])
-                    toBlock = earlierBlock.number
-                    toBlockTimestamp = earlierBlock.timestamp
-                }
-                else {
-                    toBlock = request.data.result.toBlock
-                    toBlockTimestamp = request.data.result.timestamp
-                }
+                let { config, toBlocks } = params
 
                 // get token route for calculating price
                 const routes = await this.getRoute(chainId, token)
                 if (!routes) throw { message: 'Invalid token' }
                 // calculate price using the given route
-                const price = await this.calculatePrice(chainId, routes.validPriceGap, routes.routes, toBlock)
+                const price = await this.calculatePrice(routes.validPriceGap, routes.routes, toBlocks)
+
+                // get earliest block timestamp
+                const timestamp = await this.getEarliestBlockTimestamp(toBlocks)
 
                 return {
-                    chain: chain,
-                    token: token,
+                    config: config,
                     routes: routes,
                     price: price.toString(),
-                    toBlock: toBlock,
-                    timestamp: toBlockTimestamp
+                    toBlocks: toBlocks,
+                    timestamp: timestamp
                 }
 
             default:
@@ -136,14 +123,12 @@ module.exports = {
         switch (method) {
             case 'signature': {
 
-                let { chain, token, price, toBlock, timestamp } = result
+                let { config, price, timestamp } = result
 
                 return soliditySha3([
                     { type: 'uint32', value: this.APP_ID },
-                    { type: 'address', value: token },
+                    { type: 'address', value: config },
                     { type: 'uint256', value: price },
-                    { type: 'uint256', value: String(CHAINS[chain]) },
-                    { type: 'uint256', value: toBlock },
                     { type: 'uint256', value: timestamp }
                 ])
 
