@@ -77,13 +77,14 @@ module.exports = {
 
     getReliableBlock: async function (chainId) {
         const latestBlock = await ethGetBlockNumber(chainId)
-        const earlierBlock = latestBlock - blocksToAvoidReorg[chainId]
-        return earlierBlock
+        const reliableBlock = latestBlock - blocksToAvoidReorg[chainId]
+        return reliableBlock
     },
 
     prepareToBlocks: async function (chainIds) {
         const toBlocks = {}
         for (let chainId of chainIds) {
+            // consider a few blocks before the current block as toBlock to avoid reorg
             toBlocks[chainId] = await this.getReliableBlock(chainId)
         }
 
