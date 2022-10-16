@@ -1,7 +1,7 @@
 const { BN, toBaseUnit } = MuonAppUtils
 
 module.exports = {
-    APP_NAME: 'v3_oracle',
+    APP_NAME: 'v3_oracle_test',
 
     onRequest: async function (request) {
         let {
