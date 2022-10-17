@@ -127,6 +127,7 @@ module.exports = {
                     else
                         toBlocks = request.data.result.toBlocks
                 }
+                else toBlocks = JSON.parse(toBlocks)
 
                 // calculate price using the given route
                 const price = await this.calculatePrice(routes.validPriceGap, routes.routes, toBlocks)
