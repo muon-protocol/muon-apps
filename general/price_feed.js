@@ -53,7 +53,7 @@ module.exports = {
     calculateInstantPrice: function (reserve0, reserve1) {
         // multiply reserveA into Q112 for precision in division 
         // reserveA * (2 ** 112) / reserverB
-        const price0 = (new BN(reserve1)).mul(Q112).div(new BN(reserve0))
+        const price0 = new BN(reserve1).mul(Q112).div(new BN(reserve0))
         return price0
     },
 
@@ -159,27 +159,45 @@ module.exports = {
         return Promise.all(promises)
     },
 
+    updatePriceCumulativeLasts: function (_price0CumulativeLast, _price1CumulativeLast, toBlockReserves, toBlockTimestamp) {
+        const timestampLast = toBlockTimestamp % 2 ** 32
+        if (timestampLast != toBlockReserves._blockTimestampLast) {
+            const period = new BN(timestampLast - toBlockReserves._blockTimestampLast)
+            const price0CumulativeLast = new BN(_price0CumulativeLast).add(this.calculateInstantPrice(toBlockReserves._reserve0, toBlockReserves._reserve1).mul(period))
+            const price1CumulativeLast = new BN(_price1CumulativeLast).add(this.calculateInstantPrice(toBlockReserves._reserve1, toBlockReserves._reserve0).mul(period))
+            return { price0CumulativeLast, price1CumulativeLast }
+        }
+        else return { price0CumulativeLast: _price0CumulativeLast, price1CumulativeLast: _price1CumulativeLast }
+    },
+
     getFusePrice: async function (chainId, pairAddress, toBlock, blocksToFuse) {
         const w3 = networksWeb3[chainId]
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const seedBlockNumber = toBlock - blocksToFuse
         let [
-            price0CumulativeLast,
-            price1CumulativeLast,
+            _price0CumulativeLast,
+            _price1CumulativeLast,
+            toReserves,
             to,
-            seedPrice0CumulativeLast,
-            seedPrice1CumulativeLast,
+            _seedPrice0CumulativeLast,
+            _seedPrice1CumulativeLast,
+            seedReserves,
             seed,
         ] = await this.makeBatchRequest(w3, [
             // reqs to get priceCumulativeLast of toBlock
             { req: pair.methods.price0CumulativeLast().call, block: toBlock },
             { req: pair.methods.price1CumulativeLast().call, block: toBlock },
+            { req: pair.methods.getReserves().call, block: toBlock },
             { req: w3.eth.getBlock, block: toBlock },
             // reqs to get priceCumulativeLast of seedBlock 
             { req: pair.methods.price0CumulativeLast().call, block: seedBlockNumber },
             { req: pair.methods.price1CumulativeLast().call, block: seedBlockNumber },
+            { req: pair.methods.getReserves().call, block: seedBlockNumber },
             { req: w3.eth.getBlock, block: seedBlockNumber },
         ])
+
+        const { price0CumulativeLast, price1CumulativeLast } = this.updatePriceCumulativeLasts(_price0CumulativeLast, _price1CumulativeLast, toReserves, to.timestamp)
+        const { price0CumulativeLast: seedPrice0CumulativeLast, price1CumulativeLast: seedPrice1CumulativeLast } = this.updatePriceCumulativeLasts(_seedPrice0CumulativeLast, _seedPrice1CumulativeLast, seedReserves, seed.timestamp)
 
         const period = new BN(to.timestamp).sub(new BN(seed.timestamp)).abs()
 
