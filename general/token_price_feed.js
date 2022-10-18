@@ -47,32 +47,35 @@ module.exports = {
     },
 
     getTokenPairPrice: async function (chainId, pair, toBlock) {
-        let pairPrice = await this.calculatePairPrice(chainId, pair, toBlock)
-        return new BN(pair.reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0))
+        const pairPrice = await this.calculatePairPrice(chainId, pair, toBlock)
+        return { tokenPairPrice: new BN(pair.reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0)), removed: pairPrice.removed }
     },
 
     calculatePrice: async function (validPriceGap, routes, toBlocks) {
-        let tokenPairPrice
         let sumTokenPrice = new BN(0)
         let sumWeights = new BN(0)
         let prices = []
+        const removedPrices = []
 
-        for (let route of routes) {
+        for (let [i, route] of routes.entries()) {
             let price = Q112
+            const routeRemovedPrices = []
             for (let pair of route.path) {
-                tokenPairPrice = await this.getTokenPairPrice(route.chainId, pair, toBlocks[route.chainId])
+                const { tokenPairPrice, removed: pairRemovedPrices } = await this.getTokenPairPrice(route.chainId, pair, toBlocks[route.chainId])
                 price = price.mul(tokenPairPrice).div(Q112)
+                routeRemovedPrices.push(pairRemovedPrices)
             }
             sumTokenPrice = sumTokenPrice.add(price.mul(new BN(route.weight)))
             sumWeights = sumWeights.add(new BN(route.weight))
             prices.push(price)
+            removedPrices.push(routeRemovedPrices)
         }
         if (prices.length > 1) {
             let [minPrice, maxPrice] = [BN.min(...prices), BN.max(...prices)]
             if (!this.isPriceToleranceOk(maxPrice, minPrice, validPriceGap).isOk)
                 throw { message: `High price gap between route prices (${minPrice}, ${maxPrice})` }
         }
-        return sumTokenPrice.div(sumWeights)
+        return { price: sumTokenPrice.div(sumWeights), removedPrices }
     },
 
     getReliableBlock: async function (chainId) {
@@ -130,17 +133,18 @@ module.exports = {
                 else toBlocks = JSON.parse(toBlocks)
 
                 // calculate price using the given route
-                const price = await this.calculatePrice(routes.validPriceGap, routes.routes, toBlocks)
+                const { price, removedPrices } = await this.calculatePrice(routes.validPriceGap, routes.routes, toBlocks)
 
                 // get earliest block timestamp
                 const timestamp = await this.getEarliestBlockTimestamp(chainIds, toBlocks)
 
                 return {
-                    config: config,
-                    routes: routes,
+                    config,
+                    routes,
                     price: price.toString(),
-                    toBlocks: toBlocks,
-                    timestamp: timestamp
+                    removedPrices,
+                    toBlocks,
+                    timestamp
                 }
 
             default:
