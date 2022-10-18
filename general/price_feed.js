@@ -21,7 +21,7 @@ const networksBlocksPerMinute = {
 }
 
 const THRESHOLD = 2
-const FUSE_PRICE_TOLERANCE = '0.1'
+const FUSE_PRICE_TOLERANCE = BigInt(0.3e18)
 const Q112 = new BN(2).pow(new BN(112))
 const ETH = new BN(toBaseUnit('1', '18'))
 
@@ -274,7 +274,14 @@ module.exports = {
                 }
                 else toBlock = request.data.result.toBlock
 
-                const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairAddress, FUSE_PRICE_TOLERANCE, toBlock)
+                const pairConfig = {
+                    address: pairAddress,
+                    fusePriceTolerance: FUSE_PRICE_TOLERANCE,
+                    minutesToSeed: 30,
+                    minutesToFuse: 1440,
+                }
+
+                const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairConfig, toBlock)
 
                 return {
                     chain: chain,
