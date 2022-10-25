@@ -12,7 +12,7 @@ const blocksToAvoidReorg = {
     [CHAINS.polygon]: 15,
 }
 
-const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
+const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     ...PriceFeed,
@@ -28,7 +28,7 @@ module.exports = {
                 chainIds.add(route.config.chainId)
                 return {
                     chainId: route.config.chainId,
-                    dex: route.dex,
+                    abiStyle: route.config.abiStyle,
                     path: route.path.map((address, i) => {
                         return {
                             address: address,
@@ -46,8 +46,8 @@ module.exports = {
         return { routes, chainIds }
     },
 
-    getTokenPairPrice: async function (chainId, pair, toBlock) {
-        const pairPrice = await this.calculatePairPrice(chainId, pair, toBlock)
+    getTokenPairPrice: async function (chainId, abiStyle, pair, toBlock) {
+        const pairPrice = await this.calculatePairPrice(chainId, abiStyle, pair, toBlock)
         return { tokenPairPrice: new BN(pair.reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0)), removed: pairPrice.removed }
     },
 
@@ -57,11 +57,11 @@ module.exports = {
         let prices = []
         const removedPrices = []
 
-        for (let [i, route] of routes.entries()) {
+        for (let route of routes) {
             let price = Q112
             const routeRemovedPrices = []
             for (let pair of route.path) {
-                const { tokenPairPrice, removed: pairRemovedPrices } = await this.getTokenPairPrice(route.chainId, pair, toBlocks[route.chainId])
+                const { tokenPairPrice, removed: pairRemovedPrices } = await this.getTokenPairPrice(route.chainId, route.abiStyle, pair, toBlocks[route.chainId])
                 price = price.mul(tokenPairPrice).div(Q112)
                 routeRemovedPrices.push(pairRemovedPrices)
             }

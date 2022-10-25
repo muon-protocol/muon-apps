@@ -26,6 +26,7 @@ const Q112 = new BN(2).pow(new BN(112))
 const ETH = new BN(toBaseUnit('1', '18'))
 
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }, { "inputs": [], "name": "price0CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "price1CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
+const SOLIDLY_PAIR_ABI = [{ "inputs": [], "name": "observationLength", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "tokenIn", "type": "address" }, { "internalType": "uint256", "name": "amountIn", "type": "uint256" }, { "internalType": "uint256", "name": "points", "type": "uint256" }, { "internalType": "uint256", "name": "window", "type": "uint256" }], "name": "sample", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "metadata", "outputs": [{ "internalType": "uint256", "name": "dec0", "type": "uint256" }, { "internalType": "uint256", "name": "dec1", "type": "uint256" }, { "internalType": "uint256", "name": "r0", "type": "uint256" }, { "internalType": "uint256", "name": "r1", "type": "uint256" }, { "internalType": "bool", "name": "st", "type": "bool" }, { "internalType": "address", "name": "t0", "type": "address" }, { "internalType": "address", "name": "t1", "type": "address" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     CHAINS,
@@ -81,8 +82,7 @@ module.exports = {
         return syncEventsMap
     },
 
-    createPrices: function (chainId, seed, syncEventsMap, blocksToSeed) {
-
+    createPrices: function (seed, syncEventsMap, blocksToSeed) {
         let prices = [seed.price0]
         let price = seed.price0
         // fill prices and consider a price for each block between seed and current block
@@ -170,46 +170,82 @@ module.exports = {
         else return { price0CumulativeLast: _price0CumulativeLast, price1CumulativeLast: _price1CumulativeLast }
     },
 
-    getFusePrice: async function (chainId, pairAddress, toBlock, blocksToFuse) {
-        const w3 = networksWeb3[chainId]
-        const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
-        const seedBlockNumber = toBlock - blocksToFuse
-        let [
-            _price0CumulativeLast,
-            _price1CumulativeLast,
-            toReserves,
-            to,
-            _seedPrice0CumulativeLast,
-            _seedPrice1CumulativeLast,
-            seedReserves,
-            seed,
-        ] = await this.makeBatchRequest(w3, [
-            // reqs to get priceCumulativeLast of toBlock
-            { req: pair.methods.price0CumulativeLast().call, block: toBlock },
-            { req: pair.methods.price1CumulativeLast().call, block: toBlock },
-            { req: pair.methods.getReserves().call, block: toBlock },
-            { req: w3.eth.getBlock, block: toBlock },
-            // reqs to get priceCumulativeLast of seedBlock 
-            { req: pair.methods.price0CumulativeLast().call, block: seedBlockNumber },
-            { req: pair.methods.price1CumulativeLast().call, block: seedBlockNumber },
-            { req: pair.methods.getReserves().call, block: seedBlockNumber },
-            { req: w3.eth.getBlock, block: seedBlockNumber },
-        ])
+    getFusePrice: async function (w3, pairAddress, toBlock, seedBlock, abiStyle) {
+        const getFusePriceUniV2 = async (w3, pairAddress, toBlock, seedBlock) => {
+            const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+            let [
+                _price0CumulativeLast,
+                _price1CumulativeLast,
+                toReserves,
+                to,
+                _seedPrice0CumulativeLast,
+                _seedPrice1CumulativeLast,
+                seedReserves,
+                seed,
+            ] = await this.makeBatchRequest(w3, [
+                // reqs to get priceCumulativeLast of toBlock
+                { req: pair.methods.price0CumulativeLast().call, block: toBlock },
+                { req: pair.methods.price1CumulativeLast().call, block: toBlock },
+                { req: pair.methods.getReserves().call, block: toBlock },
+                { req: w3.eth.getBlock, block: toBlock },
+                // reqs to get priceCumulativeLast of seedBlock 
+                { req: pair.methods.price0CumulativeLast().call, block: seedBlock },
+                { req: pair.methods.price1CumulativeLast().call, block: seedBlock },
+                { req: pair.methods.getReserves().call, block: seedBlock },
+                { req: w3.eth.getBlock, block: seedBlock },
+            ])
 
-        const { price0CumulativeLast, price1CumulativeLast } = this.updatePriceCumulativeLasts(_price0CumulativeLast, _price1CumulativeLast, toReserves, to.timestamp)
-        const { price0CumulativeLast: seedPrice0CumulativeLast, price1CumulativeLast: seedPrice1CumulativeLast } = this.updatePriceCumulativeLasts(_seedPrice0CumulativeLast, _seedPrice1CumulativeLast, seedReserves, seed.timestamp)
+            const { price0CumulativeLast, price1CumulativeLast } = this.updatePriceCumulativeLasts(_price0CumulativeLast, _price1CumulativeLast, toReserves, to.timestamp)
+            const { price0CumulativeLast: seedPrice0CumulativeLast, price1CumulativeLast: seedPrice1CumulativeLast } = this.updatePriceCumulativeLasts(_seedPrice0CumulativeLast, _seedPrice1CumulativeLast, seedReserves, seed.timestamp)
 
-        const period = new BN(to.timestamp).sub(new BN(seed.timestamp)).abs()
+            const period = new BN(to.timestamp).sub(new BN(seed.timestamp)).abs()
 
-        return {
-            price0: new BN(price0CumulativeLast).sub(new BN(seedPrice0CumulativeLast)).div(period),
-            price1: new BN(price1CumulativeLast).sub(new BN(seedPrice1CumulativeLast)).div(period),
-            blockNumber: seedBlockNumber
+            return {
+                price0: new BN(price0CumulativeLast).sub(new BN(seedPrice0CumulativeLast)).div(period),
+                price1: new BN(price1CumulativeLast).sub(new BN(seedPrice1CumulativeLast)).div(period),
+                blockNumber: seedBlock
+            }
         }
+        const getFusePriceSolidly = async (w3, pairAddress, toBlock, seedBlock) => {
+            const pair = new w3.eth.Contract(SOLIDLY_PAIR_ABI, pairAddress)
+            let [
+                metadata,
+                observationLength,
+                seedObservationLength,
+            ] = await this.makeBatchRequest(w3, [
+                { req: pair.methods.metadata().call, block: toBlock },
+                // reqs to get observationLength of toBlock
+                { req: pair.methods.observationLength().call, block: toBlock },
+                // reqs to get observationLength of seedBlock 
+                { req: pair.methods.observationLength().call, block: seedBlock },
+            ])
+
+            const window = observationLength - seedObservationLength
+
+            let [price0, price1] = await this.makeBatchRequest(w3, [
+                { req: pair.methods.sample(metadata.t0, metadata.dec0, 1, window).call, block: toBlock },
+                { req: pair.methods.sample(metadata.t1, metadata.dec1, 1, window).call, block: toBlock },
+            ])
+
+            return {
+                price0: new BN(price0[0]).mul(Q112).div(new BN(metadata.dec0)),
+                price1: new BN(price1[0]).mul(Q112).div(new BN(metadata.dec1)),
+                blockNumber: seedBlock
+            }
+        }
+        const GET_FUSE_PRICE_FUNCTIONS = {
+            UniV2: getFusePriceUniV2,
+            Solidly: getFusePriceSolidly,
+        }
+
+        return GET_FUSE_PRICE_FUNCTIONS[abiStyle](w3, pairAddress, toBlock, seedBlock)
     },
 
-    checkFusePrice: async function (chainId, pairAddress, price, fusePriceTolerance, blocksToFuse, toBlock) {
-        const fusePrice = await this.getFusePrice(chainId, pairAddress, toBlock, blocksToFuse)
+    checkFusePrice: async function (chainId, pairAddress, price, fusePriceTolerance, blocksToFuse, toBlock, abiStyle) {
+        const w3 = networksWeb3[chainId]
+        const seedBlock = toBlock - blocksToFuse
+
+        const fusePrice = await this.getFusePrice(w3, pairAddress, toBlock, seedBlock, abiStyle)
         if (fusePrice.price0.eq(new BN(0)))
             return {
                 isOk0: true,
@@ -220,6 +256,7 @@ module.exports = {
             }
         const checkResult0 = this.isPriceToleranceOk(price.price0, fusePrice.price0, fusePriceTolerance)
         const checkResult1 = this.isPriceToleranceOk(price.price1, Q112.mul(Q112).div(fusePrice.price0), fusePriceTolerance)
+
         return {
             isOk0: checkResult0.isOk,
             isOk1: checkResult1.isOk,
@@ -229,7 +266,7 @@ module.exports = {
         }
     },
 
-    calculatePairPrice: async function (chainId, pair, toBlock) {
+    calculatePairPrice: async function (chainId, abiStyle, pair, toBlock) {
         const blocksToSeed = networksBlocksPerMinute[chainId] * pair.minutesToSeed
         const blocksToFuse = networksBlocksPerMinute[chainId] * pair.minutesToFuse
         // get seed price
@@ -237,13 +274,13 @@ module.exports = {
         // get sync events that are emitted after seed block
         const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pair.address, blocksToSeed)
         // create an array contains a price for each block mined after seed block 
-        const prices = this.createPrices(chainId, seed, syncEventsMap)
+        const prices = this.createPrices(seed, syncEventsMap, blocksToSeed)
         // remove outlier prices
         const { outlierRemoved, removed } = this.removeOutlier(prices)
         // calculate the average price
         const price = this.calculateAveragePrice(outlierRemoved, true)
         // check for high price change in comparison with fuse price
-        const fuse = await this.checkFusePrice(chainId, pair.address, price, pair.fusePriceTolerance, blocksToFuse, toBlock)
+        const fuse = await this.checkFusePrice(chainId, pair.address, price, pair.fusePriceTolerance, blocksToFuse, toBlock, abiStyle)
         if (!(fuse.isOk0 && fuse.isOk1)) throw { message: `High price gap 0(${fuse.priceDiffPercentage0}%) 1(${fuse.priceDiffPercentage1}%) between fuse and twap price for ${pair.address} in block range ${fuse.block} - ${toBlock}` }
 
         return {
@@ -262,7 +299,7 @@ module.exports = {
         switch (method) {
             case 'signature':
 
-                let { chain, pairAddress, toBlock } = params
+                let { chain, pairAddress, toBlock, abiStyle } = params
                 if (!chain) throw { message: 'Invalid chain' }
 
                 const chainId = CHAINS[chain]
@@ -281,7 +318,7 @@ module.exports = {
                     minutesToFuse: 1440,
                 }
 
-                const { price0, price1, removed } = await this.calculatePairPrice(chainId, pairConfig, toBlock)
+                const { price0, price1, removed } = await this.calculatePairPrice(chainId, abiStyle, pairConfig, toBlock)
 
                 return {
                     chain: chain,
