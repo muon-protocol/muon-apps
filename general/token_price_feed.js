@@ -57,19 +57,30 @@ module.exports = {
         let prices = []
         const removedPrices = []
 
+        const promises = []
+        for (let [i, route] of routes.entries()) {
+            for (let pair of route.path) {
+                promises.push(this.getTokenPairPrice(route.chainId, route.abiStyle, pair, toBlocks[route.chainId]))
+            }
+        }
+
+        let result = await Promise.all(promises)
+
         for (let route of routes) {
             let price = Q112
             const routeRemovedPrices = []
             for (let pair of route.path) {
-                const { tokenPairPrice, removed: pairRemovedPrices } = await this.getTokenPairPrice(route.chainId, route.abiStyle, pair, toBlocks[route.chainId])
-                price = price.mul(tokenPairPrice).div(Q112)
-                routeRemovedPrices.push(pairRemovedPrices)
+                price = price.mul(result[0].tokenPairPrice).div(Q112)
+                routeRemovedPrices.push(result[0].removed)
+                result = result.slice(1)
             }
+
             sumTokenPrice = sumTokenPrice.add(price.mul(new BN(route.weight)))
             sumWeights = sumWeights.add(new BN(route.weight))
             prices.push(price)
             removedPrices.push(routeRemovedPrices)
         }
+
         if (prices.length > 1) {
             let [minPrice, maxPrice] = [BN.min(...prices), BN.max(...prices)]
             if (!this.isPriceToleranceOk(maxPrice, minPrice, validPriceGap).isOk)
