@@ -1,7 +1,28 @@
-const { BN, toBaseUnit } = MuonAppUtils
+const { axios, BN, toBaseUnit } = MuonAppUtils
 
 module.exports = {
     APP_NAME: 'dibs',
+
+    getUserBalance: async function (user, token) {
+        const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
+        const query = `{
+            userBalance: accumulativeTokenBalances(where: {user: "${user}", token: "${token}"}) {
+              id
+              user
+              token
+              amount
+            }
+          }`
+
+        const {
+            data: { data }
+        } = await axios.post(subgraphUrl, {
+            query: query
+        })
+
+        return data.userBalance[0].amount
+
+    },
 
     onRequest: async function (request) {
         let {
@@ -9,9 +30,15 @@ module.exports = {
             data: { params }
         } = request
         switch (method) {
-            case '':
+            case 'claim':
+                let { user, token } = request
+                const balance = await this.getUserBalance(user, token)
+                return {
+                    user, token, balance
+                }
 
-                return {}
+            case 'randInt':
+                return { randInt: new BN(BigInt(Math.floor(Math.random() * 2 ** 256))).toString() }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -27,8 +54,20 @@ module.exports = {
     signParams: function (request, result) {
         let { method } = request;
         switch (method) {
-            case '':
-                return []
+            case 'claim':
+                let { user, token, balance } = result
+                return [
+                    { type: 'address', value: user },
+                    { type: 'address', value: token },
+                    { type: 'uint256', value: balance },
+                    { type: 'uint256', value: request.data.timestamp }
+                ]
+
+            case 'randInt':
+                return [
+                    { type: 'uint256', value: request.data.result.randInt }
+                ]
+
             default:
                 break
         }
