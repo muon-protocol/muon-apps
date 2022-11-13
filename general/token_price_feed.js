@@ -126,7 +126,7 @@ module.exports = {
         } = request
 
         switch (method) {
-            case 'signature':
+            case 'price':
 
                 let { config, toBlocks } = params
 
@@ -158,6 +158,57 @@ module.exports = {
                     timestamp
                 }
 
+            case 'lp_price': {
+                let { pair, config0, config1, toBlocks, chain } = params
+
+                const { K, totalSupply } = await this.getLpTotalSupply(pair, chain)
+
+                // get routes for each config
+                let
+                    [
+                        { routes: routes0, chainIds: chainIds0 },
+                        { routes: routes1, chainIds: chainIds1 }
+                    ]
+                        = await Promise.all([this.getRoute(config0), this.getRoute(config1)])
+
+                if (!routes0.routes || !routes1.routes) throw { message: 'Invalid config' }
+
+                const chainIds = new Set([...chainIds0, ...chainIds1])
+
+                // prepare toBlocks 
+                if (!toBlocks) {
+                    if (!request.data.result)
+                        toBlocks = await this.prepareToBlocks(chainIds)
+                    else
+                        toBlocks = request.data.result.toBlocks
+                }
+                else toBlocks = JSON.parse(toBlocks)
+
+                // prepare promises for calculating each config price
+                const promises = [
+                    this.calculatePrice(routes0.validPriceGap, routes0.routes, toBlocks),
+                    this.calculatePrice(routes1.validPriceGap, routes1.routes, toBlocks)
+                ]
+
+                let [price0, price1] = await Promise.all(promises)
+
+                // calculate lp token price based on price0 & price1 & K & totalSupply
+                const price = await this.calculateLpPrice(price0.price, price1.price, K, totalSupply)
+
+                // get earliest block timestamp
+                const timestamp = await this.getEarliestBlockTimestamp(chainIds, toBlocks)
+
+                return {
+                    chainId: CHAINS[chain],
+                    pair,
+                    price: price.toString(),
+                    config0,
+                    config1,
+                    toBlocks,
+                    timestamp
+                }
+            }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -172,7 +223,7 @@ module.exports = {
     signParams: function (request, result) {
         let { method } = request
         switch (method) {
-            case 'signature': {
+            case 'price': {
 
                 let { config, price, timestamp } = result
 
@@ -181,8 +232,21 @@ module.exports = {
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: timestamp }
                 ]
-
             }
+
+            case 'lp_price': {
+                let { chainId, pair, price, config0, config1, timestamp } = result
+
+                return [
+                    { type: 'uint256', value: chainId },
+                    { type: 'address', value: pair },
+                    { type: 'uint256', value: price },
+                    { type: 'address', value: config0 },
+                    { type: 'address', value: config1 },
+                    { type: 'uint256', value: timestamp }
+                ]
+            }
+
             default:
                 break
         }
