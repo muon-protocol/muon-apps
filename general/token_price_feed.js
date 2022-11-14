@@ -119,6 +119,21 @@ module.exports = {
         return Math.min(...timestamps)
     },
 
+    getLpTotalSupply: async function (pair, chain) {
+        const [reserves, totalSupply] = await Promise.all([
+            ethCall(pair, 'getReserves', [], this.UNISWAPV2_PAIR_ABI, CHAINS[chain]),
+            ethCall(pair, 'totalSupply', [], this.UNISWAPV2_PAIR_ABI, CHAINS[chain]),
+        ])
+
+        const K = new BN(reserves._reserve0).mul(new BN(reserves._reserve1))
+        return { K, totalSupply: new BN(totalSupply) }
+    },
+
+    calculateLpPrice: async function (price0, price1, K, totalSupply) {
+        const numerator = new BN(2).mul(new BN(BigInt(Math.sqrt(price0.mul(price1).mul(K)))))
+        return numerator.div(totalSupply)
+    },
+
     onRequest: async function (request) {
         let {
             method,
