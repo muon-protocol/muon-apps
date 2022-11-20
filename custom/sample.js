@@ -87,7 +87,7 @@ module.exports = {
   onArrive: async function (request) {
     let {method, data: {params}} = request;
     switch (method) {
-      case 'lock':
+      case 'lock-1':
         let {user} = params;
 
         /**
@@ -97,16 +97,13 @@ module.exports = {
          */
 
         // looking for data in memory
-        let lock = await this.readNodeMem({"data.name": LOCK_NAME, "data.value": user})
+        let lock = await this.readNodeMem(`user-lock-${user}`)
         if (lock) {
           throw {message: `User [${user}] locked for a moment`}
         }
 
         // Write to memory
-        let memory = [
-          {type: 'uint256', name: LOCK_NAME, value: user}
-        ]
-        await this.writeNodeMem(memory, 120);
+        await this.writeNodeMem(`user-lock-${user}`, [{type: 'bool', value: true}], 120);
 
         // wait for memory write confirmation
         await timeout(1000);
@@ -137,17 +134,17 @@ module.exports = {
         return `Data stored in memory for user: ${user}`
       }
 
-      case 'lock': {
+      case 'lock-1': {
         let {user} = params
+        return 'lock done.'
+      }
 
-        // You can check for atomic run of the lock method
-        let lock = await this.readNodeMem({"data.name": LOCK_NAME, "data.value": user}, {distinct: "owner"})
-        if (lock.length === 0) {
-          throw {message: 'Memory write not confirmed.'}
-        } else if (lock.length > 1) {
-          throw {message: 'Atomic run failed.'}
-        }
-
+      case 'lock-2': {
+        let {user} = params
+        /** Atomic locally read and write */
+        const alreadyLocked = await this.writeLocalMem(`lock-${user}`, [{type: "bool", value: true}], 120, {getset: true})
+        if(alreadyLocked)
+          throw `user locked`;
         return 'lock done.'
       }
 
@@ -177,7 +174,8 @@ module.exports = {
       case 'test_speed':
       case 'test_redis':
       case 'test_memory':
-      case 'lock':
+      case 'lock-1':
+      case 'lock-2':
         return [{type: 'string', value: result}]
       case 'btc_price':
         return [
@@ -200,6 +198,7 @@ module.exports = {
         }
       } = req
       return {
+        key: "sample-key",
         ttl: 10,
         data: [{ name: 'lock', type: 'string', value: user }]
       }
