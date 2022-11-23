@@ -1,4 +1,4 @@
-const { axios, soliditySha3 } = MuonAppUtils
+const { axios, floatToBN } = MuonAppUtils
 
 module.exports = {
   APP_NAME: 'simple_oracle',
@@ -7,9 +7,13 @@ module.exports = {
     let { method } = request
     switch (method) {
       case 'eth-price':
-        const data = await axios.get('https://api.coinbase.com/v2/exchange-rates?currency=ETH')
+        const response = await axios
+          .get('https://api.coinbase.com/v2/exchange-rates?currency=ETH')
+          .then(({data}) => data)
+        if(!response?.data?.rates?.USD)
+          throw `USD rate not found`
         return {
-          price: data['rates']['USD'],
+          price: response.data.rates.USD,
         }
 
       default:
@@ -21,13 +25,15 @@ module.exports = {
     let { method } = request;
     let { price } = result;
     switch (method) {
-      case 'test':
+      case 'eth-price':
         return [
-          { type: 'uint256', value: price }
+          { type: 'uint256', value: String(floatToBN(price, 18)) }
         ]
+
       default:
-        break
+        throw `Unknown method '${method}'`
     }
   }
 }
+
 
