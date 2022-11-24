@@ -9,24 +9,15 @@ const PriceFeedApp = dynamicExtend(
 )
 const app = new PriceFeedApp()
 const {
-    CHAINS,
     networksWeb3,
-    networksBlocks,
-    THRESHOLD,
-    PRICE_TOLERANCE,
-    FUSE_PRICE_TOLERANCE,
-    Q112,
-    ETH,
     UNISWAPV2_PAIR_ABI,
     BN,
-    toBaseUnit,
 } = app
 
 const RED = "\x1b[31m"
 const GREEN = "\x1b[32m"
 const BLUE = "\x1b[34m"
 const CYAN = "\x1b[36m"
-const RESET = "\x1b[0m"
 function injectColor(color, text) {
     return color + text
 }
@@ -42,11 +33,11 @@ describe('Price Feed app unit test', () => {
         const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
         const options = {
             fromBlock: seedBlockNumber + 1,
-            toBlock: seedBlockNumber + networksBlocks[chainId]['seed']
+            toBlock: seedBlockNumber + 1000
         }
         const syncEvents = await pair.getPastEvents("Sync", options)
 
-        const syncEventsMap = await app.getSyncEvents(chainId, seedBlockNumber, pairAddress)
+        const syncEventsMap = await app.getSyncEvents(chainId, seedBlockNumber, pairAddress, 1000)
         const numberOfEvents = Object.keys(syncEventsMap).length
 
         let lastEvent = {
@@ -82,7 +73,6 @@ describe('Price Feed app unit test', () => {
     })
 
     it('Test createPrices', async () => {
-        const chainId = 250
         const seed = {
             price0: new BN('553937927341650325448601038471856'),
             blockNumber: 14506224
@@ -107,12 +97,13 @@ describe('Price Feed app unit test', () => {
             }
         }
 
-        const prices = app.createPrices(chainId, seed, syncEventsMap)
+        const blocksToSeed = 1000
+        const prices = app.createPrices(seed, syncEventsMap, blocksToSeed)
 
         assert(
-            prices.length == networksBlocks[chainId]['seed'] + 1,
+            prices.length == blocksToSeed + 1,
             `${injectColor(BLUE, 'Prices array has invalid length')}
-            Expected: ${injectColor(GREEN, networksBlocks[chainId]['seed'] + 1)}
+            Expected: ${injectColor(GREEN, blocksToSeed + 1)}
             Received: ${injectColor(RED, prices.length)}`
         )
         assert(
