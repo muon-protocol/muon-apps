@@ -13,18 +13,18 @@ const blocksToAvoidReorg = {
 }
 
 const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }, { "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
+const LP_CONFIG_ABI = [{ "inputs": [], "name": "getMetaData", "outputs": [{ "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "address", "name": "pair", "type": "address" }, { "components": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }, { "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }], "internalType": "struct LpConfig.ConfigMetaData", "name": "config0", "type": "tuple" }, { "components": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }, { "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }], "internalType": "struct LpConfig.ConfigMetaData", "name": "config1", "type": "tuple" }], "internalType": "struct LpConfig.LpMetaData", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     ...PriceFeed,
 
     APP_NAME: 'token_price_feed',
 
-    getRoute: async function (config) {
-        let routes = await ethCall(config, 'getRoutes', [], CONFIG_ABI, CHAINS.fantom)
+    formatRoutes: function (metaData) {
         const chainIds = new Set()
-        routes = {
-            validPriceGap: routes.validPriceGap_,
-            routes: routes.routes_.map((route) => {
+        const routes = {
+            validPriceGap: metaData.validPriceGap_,
+            routes: metaData.routes_.map((route) => {
                 chainIds.add(route.config.chainId)
                 return {
                     chainId: route.config.chainId,
@@ -46,12 +46,20 @@ module.exports = {
         return { routes, chainIds }
     },
 
+    getRoutes: async function (config) {
+        let configMetaData = await ethCall(config, 'getRoutes', [], CONFIG_ABI, CHAINS.fantom)
+        return this.formatRoutes(configMetaData)
+    },
+
     getTokenPairPrice: async function (chainId, abiStyle, pair, toBlock) {
         const pairPrice = await this.calculatePairPrice(chainId, abiStyle, pair, toBlock)
         return { tokenPairPrice: new BN(pair.reversed ? new BN(pairPrice.price1) : new BN(pairPrice.price0)), removed: pairPrice.removed }
     },
 
     calculatePrice: async function (validPriceGap, routes, toBlocks) {
+        if (routes.length == 0)
+            return { price: Q112, removedPrices: [] }
+
         let sumTokenPrice = new BN(0)
         let sumWeights = new BN(0)
         let prices = []
@@ -119,6 +127,28 @@ module.exports = {
         return Math.min(...timestamps)
     },
 
+    getLpTotalSupply: async function (pairAddress, chainId, toBlock) {
+        const w3 = this.networksWeb3[chainId]
+        const pair = new w3.eth.Contract(this.UNISWAPV2_PAIR_ABI, pairAddress)
+        const [reserves, totalSupply] = await this.makeBatchRequest(w3, [
+            { req: pair.methods.getReserves().call, block: toBlock },
+            { req: pair.methods.totalSupply().call, block: toBlock },
+        ])
+
+        const K = new BN(reserves._reserve0).mul(new BN(reserves._reserve1))
+        return { K, totalSupply: new BN(totalSupply) }
+    },
+
+    getLpMetaData: async function (config) {
+        const { chainId, pair, config0, config1 } = await ethCall(config, 'getMetaData', [], LP_CONFIG_ABI, CHAINS.fantom)
+        return { chainId, pair, config0, config1 }
+    },
+
+    calculateLpPrice: async function (price0, price1, K, totalSupply) {
+        const numerator = new BN(2).mul(new BN(BigInt(Math.sqrt(price0.mul(price1).mul(K)))))
+        return numerator.div(totalSupply)
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -126,12 +156,12 @@ module.exports = {
         } = request
 
         switch (method) {
-            case 'signature':
+            case 'price':
 
                 let { config, toBlocks } = params
 
                 // get token route for calculating price
-                const { routes, chainIds } = await this.getRoute(config)
+                const { routes, chainIds } = await this.getRoutes(config)
                 if (!routes) throw { message: 'Invalid config' }
 
                 // prepare toBlocks 
@@ -158,6 +188,48 @@ module.exports = {
                     timestamp
                 }
 
+            case 'lp_price': {
+                let { config, toBlocks } = params
+
+                let { chainId, pair, config0, config1 } = await this.getLpMetaData(config)
+
+                let { routes: routes0, chainIds: chainIds0 } = this.formatRoutes(config0)
+                let { routes: routes1, chainIds: chainIds1 } = this.formatRoutes(config1)
+
+                const chainIds = new Set([...chainIds0, ...chainIds1])
+
+                // prepare toBlocks 
+                if (!toBlocks) {
+                    if (!request.data.result)
+                        toBlocks = await this.prepareToBlocks(chainIds)
+                    else
+                        toBlocks = request.data.result.toBlocks
+                }
+                else toBlocks = JSON.parse(toBlocks)
+
+                // prepare promises for calculating each config price
+                const promises = [
+                    this.calculatePrice(routes0.validPriceGap, routes0.routes, toBlocks),
+                    this.calculatePrice(routes1.validPriceGap, routes1.routes, toBlocks)
+                ]
+
+                let [price0, price1] = await Promise.all(promises)
+                const { K, totalSupply } = await this.getLpTotalSupply(pair, chainId, toBlocks[chainId])
+
+                // calculate lp token price based on price0 & price1 & K & totalSupply
+                const price = await this.calculateLpPrice(price0.price, price1.price, K, totalSupply)
+
+                // get earliest block timestamp
+                const timestamp = await this.getEarliestBlockTimestamp(chainIds, toBlocks)
+
+                return {
+                    config,
+                    price: price.toString(),
+                    toBlocks,
+                    timestamp
+                }
+            }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -172,7 +244,8 @@ module.exports = {
     signParams: function (request, result) {
         let { method } = request
         switch (method) {
-            case 'signature': {
+            case 'price':
+            case 'lp_price': {
 
                 let { config, price, timestamp } = result
 
@@ -181,8 +254,8 @@ module.exports = {
                     { type: 'uint256', value: price },
                     { type: 'uint256', value: timestamp }
                 ]
-
             }
+
             default:
                 break
         }
