@@ -144,9 +144,20 @@ module.exports = {
         return { chainId, pair, config0, config1 }
     },
 
-    calculateLpPrice: async function (price0, price1, K, totalSupply) {
-        const numerator = new BN(2).mul(new BN(BigInt(Math.sqrt(price0.mul(price1).mul(K)))))
-        return numerator.div(totalSupply)
+    calculateLpPrice: async function (chainId, pair, routes0, routes1, toBlocks) {
+        // prepare promises for calculating each config price
+        const promises = [
+            this.calculatePrice(routes0.validPriceGap, routes0.routes, toBlocks),
+            this.calculatePrice(routes1.validPriceGap, routes1.routes, toBlocks)
+        ]
+
+        let [price0, price1] = await Promise.all(promises)
+        const { K, totalSupply } = await this.getLpTotalSupply(pair, chainId, toBlocks[chainId])
+
+        // calculate lp token price based on price0 & price1 & K & totalSupply
+        const numerator = new BN(2).mul(new BN(BigInt(Math.sqrt(price0.price.mul(price1.price).mul(K)))))
+        const price = numerator.div(totalSupply)
+        return price
     },
 
     onRequest: async function (request) {
@@ -207,17 +218,7 @@ module.exports = {
                 }
                 else toBlocks = JSON.parse(toBlocks)
 
-                // prepare promises for calculating each config price
-                const promises = [
-                    this.calculatePrice(routes0.validPriceGap, routes0.routes, toBlocks),
-                    this.calculatePrice(routes1.validPriceGap, routes1.routes, toBlocks)
-                ]
-
-                let [price0, price1] = await Promise.all(promises)
-                const { K, totalSupply } = await this.getLpTotalSupply(pair, chainId, toBlocks[chainId])
-
-                // calculate lp token price based on price0 & price1 & K & totalSupply
-                const price = await this.calculateLpPrice(price0.price, price1.price, K, totalSupply)
+                const price = await this.calculateLpPrice(chainId, pair, routes0, routes1, toBlocks)
 
                 // get earliest block timestamp
                 const timestamp = await this.getEarliestBlockTimestamp(chainIds, toBlocks)
