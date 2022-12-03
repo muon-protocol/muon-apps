@@ -5,11 +5,11 @@ const assert = require('assert')
 const { ethGetBlockNumber } = MuonAppUtils
 
 const { dynamicExtend } = require('../../src/core/utils')
-const TokenPriceFeedApp = dynamicExtend(
+const Twaper = dynamicExtend(
     class { },
-    require('../general/token_price_feed')
+    require('../general/twaper')
 )
-const app = new TokenPriceFeedApp()
+const app = new Twaper()
 
 const RED = "\x1b[31m"
 const GREEN = "\x1b[32m"
