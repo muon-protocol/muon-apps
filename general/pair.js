@@ -39,9 +39,6 @@ module.exports = {
     BN,
     toBaseUnit,
 
-
-    APP_NAME: 'price_feed',
-
     isPriceToleranceOk: function (price, expectedPrice, priceTolerance) {
         let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
         const priceDiffPercentage = new BN(priceDiff).mul(ETH).div(new BN(expectedPrice))
@@ -289,76 +286,4 @@ module.exports = {
             removed
         }
     },
-
-    onRequest: async function (request) {
-        let {
-            method,
-            data: { params }
-        } = request
-
-        switch (method) {
-            case 'signature':
-
-                let { chain, pairAddress, toBlock, abiStyle } = params
-                if (!chain) throw { message: 'Invalid chain' }
-
-                const chainId = CHAINS[chain]
-                if (!request.data.result) {
-                    const w3 = networksWeb3[chainId]
-                    const currentBlockNumber = await w3.eth.getBlockNumber()
-                    if (!toBlock) toBlock = currentBlockNumber
-                    else if (toBlock > currentBlockNumber) throw { message: 'Invalid Block Number' }
-                }
-                else toBlock = request.data.result.toBlock
-
-                const pairConfig = {
-                    address: pairAddress,
-                    fusePriceTolerance: FUSE_PRICE_TOLERANCE,
-                    minutesToSeed: 30,
-                    minutesToFuse: 1440,
-                }
-
-                const { price0, price1, removed } = await this.calculatePairPrice(chainId, abiStyle, pairConfig, toBlock)
-
-                return {
-                    chain: chain,
-                    pairAddress: pairAddress,
-                    price0: price0.toString(),
-                    price1: price1.toString(),
-                    removedOutliers: removed,
-                    toBlock: toBlock,
-                }
-
-            default:
-                throw { message: `Unknown method ${params}` }
-        }
-    },
-
-    /**
-     * List of the parameters that need to be signed. 
-     * APP_ID, reqId will be added by the
-     * Muon Core and [APP_ID, reqId, … signParams]
-     * should be verified on chain.
-     */
-    signParams: function (request, result) {
-        let { method } = request
-        switch (method) {
-            case 'signature': {
-
-                let { chain, pairAddress, price0, price1, toBlock } = result
-
-                return [
-                    { type: 'address', value: pairAddress },
-                    { type: 'uint256', value: price0 },
-                    { type: 'uint256', value: price1 },
-                    { type: 'uint256', value: String(CHAINS[chain]) },
-                    { type: 'uint256', value: request.data.timestamp },
-                    { type: 'uint256', value: toBlock },
-                ]
-
-            }
-            default:
-                break
-        }
-    }
 }

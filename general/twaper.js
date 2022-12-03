@@ -1,10 +1,10 @@
 const { ethCall, ethGetBlock, ethGetBlockNumber, BN } = MuonAppUtils
-const PriceFeed = require('./price_feed')
+const Pair = require('./pair')
 
 const {
     CHAINS,
     Q112,
-} = PriceFeed
+} = Pair
 
 const blocksToAvoidReorg = {
     [CHAINS.mainnet]: 3,
@@ -16,9 +16,9 @@ const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internal
 const LP_CONFIG_ABI = [{ "inputs": [], "name": "getMetaData", "outputs": [{ "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "address", "name": "pair", "type": "address" }, { "components": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }, { "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }], "internalType": "struct LpConfig.ConfigMetaData", "name": "config0", "type": "tuple" }, { "components": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }, { "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }], "internalType": "struct LpConfig.ConfigMetaData", "name": "config1", "type": "tuple" }], "internalType": "struct LpConfig.LpMetaData", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
-    ...PriceFeed,
+    ...Pair,
 
-    APP_NAME: 'token_price_feed',
+    APP_NAME: 'twaper',
 
     formatRoutes: function (metaData) {
         const chainIds = new Set()
