@@ -3,11 +3,11 @@ require('../../src/core/global')
 const assert = require('assert')
 
 const { dynamicExtend } = require('../../src/core/utils')
-const PriceFeedApp = dynamicExtend(
+const Pair = dynamicExtend(
     class { },
-    require('../general/price_feed')
+    require('../general/pair')
 )
-const app = new PriceFeedApp()
+const app = new Pair()
 const {
     networksWeb3,
     UNISWAPV2_PAIR_ABI,
@@ -23,7 +23,7 @@ function injectColor(color, text) {
 }
 
 
-describe('Price Feed app unit test', () => {
+describe('Pair unit test', () => {
     it('Test getSyncEvents', async () => {
         const chainId = 1
         const seedBlockNumber = 14506359

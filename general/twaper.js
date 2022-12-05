@@ -1,10 +1,10 @@
 const { ethCall, ethGetBlock, ethGetBlockNumber, BN } = MuonAppUtils
-const PriceFeed = require('./price_feed')
+const Pair = require('./pair')
 
 const {
     CHAINS,
     Q112,
-} = PriceFeed
+} = Pair
 
 const blocksToAvoidReorg = {
     [CHAINS.mainnet]: 3,
@@ -16,9 +16,9 @@ const CONFIG_ABI = [{ "inputs": [], "name": "getRoutes", "outputs": [{ "internal
 const LP_CONFIG_ABI = [{ "inputs": [], "name": "getMetaData", "outputs": [{ "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "address", "name": "pair", "type": "address" }, { "components": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }, { "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }], "internalType": "struct LpConfig.ConfigMetaData", "name": "config0", "type": "tuple" }, { "components": [{ "components": [{ "internalType": "uint256", "name": "index", "type": "uint256" }, { "internalType": "string", "name": "dex", "type": "string" }, { "internalType": "address[]", "name": "path", "type": "address[]" }, { "components": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "string", "name": "abiStyle", "type": "string" }, { "internalType": "bool[]", "name": "reversed", "type": "bool[]" }, { "internalType": "uint256[]", "name": "fusePriceTolerance", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToSeed", "type": "uint256[]" }, { "internalType": "uint256[]", "name": "minutesToFuse", "type": "uint256[]" }, { "internalType": "uint256", "name": "weight", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct IConfig.Config", "name": "config", "type": "tuple" }], "internalType": "struct IConfig.Route[]", "name": "routes_", "type": "tuple[]" }, { "internalType": "uint256", "name": "validPriceGap_", "type": "uint256" }], "internalType": "struct LpConfig.ConfigMetaData", "name": "config1", "type": "tuple" }], "internalType": "struct LpConfig.LpMetaData", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
-    ...PriceFeed,
+    ...Pair,
 
-    APP_NAME: 'token_price_feed',
+    APP_NAME: 'twaper',
 
     formatRoutes: function (metaData) {
         const chainIds = new Set()
@@ -144,9 +144,20 @@ module.exports = {
         return { chainId, pair, config0, config1 }
     },
 
-    calculateLpPrice: async function (price0, price1, K, totalSupply) {
-        const numerator = new BN(2).mul(new BN(BigInt(Math.sqrt(price0.mul(price1).mul(K)))))
-        return numerator.div(totalSupply)
+    calculateLpPrice: async function (chainId, pair, routes0, routes1, toBlocks) {
+        // prepare promises for calculating each config price
+        const promises = [
+            this.calculatePrice(routes0.validPriceGap, routes0.routes, toBlocks),
+            this.calculatePrice(routes1.validPriceGap, routes1.routes, toBlocks)
+        ]
+
+        let [price0, price1] = await Promise.all(promises)
+        const { K, totalSupply } = await this.getLpTotalSupply(pair, chainId, toBlocks[chainId])
+
+        // calculate lp token price based on price0 & price1 & K & totalSupply
+        const numerator = new BN(2).mul(new BN(BigInt(Math.sqrt(price0.price.mul(price1.price).mul(K)))))
+        const price = numerator.div(totalSupply)
+        return price
     },
 
     onRequest: async function (request) {
@@ -207,17 +218,7 @@ module.exports = {
                 }
                 else toBlocks = JSON.parse(toBlocks)
 
-                // prepare promises for calculating each config price
-                const promises = [
-                    this.calculatePrice(routes0.validPriceGap, routes0.routes, toBlocks),
-                    this.calculatePrice(routes1.validPriceGap, routes1.routes, toBlocks)
-                ]
-
-                let [price0, price1] = await Promise.all(promises)
-                const { K, totalSupply } = await this.getLpTotalSupply(pair, chainId, toBlocks[chainId])
-
-                // calculate lp token price based on price0 & price1 & K & totalSupply
-                const price = await this.calculateLpPrice(price0.price, price1.price, K, totalSupply)
+                const price = await this.calculateLpPrice(chainId, pair, routes0, routes1, toBlocks)
 
                 // get earliest block timestamp
                 const timestamp = await this.getEarliestBlockTimestamp(chainIds, toBlocks)
