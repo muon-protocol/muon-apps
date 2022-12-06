@@ -37,9 +37,6 @@ module.exports = {
                     user, token, balance
                 }
 
-            case 'randInt':
-                return { randInt: new BN(BigInt(Math.floor(Math.random() * 2 ** 256))).toString() }
-
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -61,11 +58,6 @@ module.exports = {
                     { type: 'address', value: token },
                     { type: 'uint256', value: balance },
                     { type: 'uint256', value: request.data.timestamp }
-                ]
-
-            case 'randInt':
-                return [
-                    { type: 'uint256', value: request.data.result.randInt }
                 ]
 
             default:
