@@ -27,7 +27,10 @@ module.exports = {
 
         const data = await this.postQuery(query)
 
-        return data.userBalance[0].amount
+        const userBalance = data.userBalance[0]
+        if (userBalance == undefined) throw { message: `Zero balance for this token` }
+
+        return userBalance.amount
     },
 
     getRoundWallets: async function (roundId) {
