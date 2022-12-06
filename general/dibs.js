@@ -31,11 +31,19 @@ module.exports = {
         } = request
         switch (method) {
             case 'claim':
-                let { user, token } = request
+                let { user, token } = params
                 const balance = await this.getUserBalance(user, token)
                 return {
                     user, token, balance
                 }
+
+            case 'winner':
+                let { roundId } = params
+                const seed = await this.getSeed(roundId)
+                const wallets = await this.getRoundWallets(roundId)
+                const winner = await this.whoIsWinner(seed, wallets)
+
+                return { roundId, winner }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -58,6 +66,13 @@ module.exports = {
                     { type: 'address', value: token },
                     { type: 'uint256', value: balance },
                     { type: 'uint256', value: request.data.timestamp }
+                ]
+
+            case 'winner':
+                let { roundId, winner } = result
+                return [
+                    { type: 'uint256', value: roundId },
+                    { type: 'address', value: winner },
                 ]
 
             default:
