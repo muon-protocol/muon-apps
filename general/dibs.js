@@ -1,10 +1,21 @@
 const { axios, BN, toBaseUnit } = MuonAppUtils
 
+const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
+
 module.exports = {
     APP_NAME: 'dibs',
 
+    postQuery: async function (query) {
+        const {
+            data: { data }
+        } = await axios.post(subgraphUrl, {
+            query: query
+        })
+
+        return data
+    },
+
     getUserBalance: async function (user, token) {
-        const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
         const query = `{
             userBalance: accumulativeTokenBalances(where: {user: "${user}", token: "${token}"}) {
               id
@@ -14,14 +25,34 @@ module.exports = {
             }
           }`
 
-        const {
-            data: { data }
-        } = await axios.post(subgraphUrl, {
-            query: query
-        })
+        const data = await this.postQuery(query)
 
         return data.userBalance[0].amount
+    },
 
+    getRoundWallets: async function (roundId) {
+        const query = `{
+            userLotteries (
+                where: {roundId: ${roundId}}
+                orderBy: user
+            ) {
+                id
+                user,
+                round,
+                tickets
+            }
+        }`
+
+        let wallets = []
+        await this.postQuery(query).userLotteries.forEach((el) => wallets.push(...Array(el.tickets).fill(el.user)))
+        if (wallets.length == 0) throw { message: `No Wallet` }
+        return wallets
+
+    },
+
+    whoIsWinner: async function (seed, wallets) {
+        const winnerTicket = seed % wallets.length
+        return wallets[winnerTicket]
     },
 
     onRequest: async function (request) {
