@@ -108,13 +108,12 @@ module.exports = {
                     { type: 'address', value: user },
                     { type: 'address', value: token },
                     { type: 'uint256', value: balance },
-                    { type: 'uint256', value: request.data.timestamp }
                 ]
 
             case 'winner':
                 let { roundId, winner } = result
                 return [
-                    { type: 'uint256', value: roundId },
+                    { type: 'uint32', value: roundId },
                     { type: 'address', value: winner },
                 ]
 
