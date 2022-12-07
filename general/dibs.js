@@ -36,7 +36,7 @@ module.exports = {
     getRoundWallets: async function (roundId) {
         const query = `{
             userLotteries (
-                where: {roundId: ${roundId}}
+                where: {round: "${roundId}"}
                 orderBy: user
             ) {
                 id
@@ -46,11 +46,12 @@ module.exports = {
             }
         }`
 
-        let wallets = []
-        await this.postQuery(query).userLotteries.forEach((el) => wallets.push(...Array(el.tickets).fill(el.user)))
-        if (wallets.length == 0) throw { message: `No Wallet` }
-        return wallets
+        const data = await this.postQuery(query)
+        if (data.userLotteries.length == 0) throw { message: `No Wallet` }
 
+        let wallets = [];
+        data.userLotteries.forEach((el) => wallets.push(...Array(el.tickets).fill(el.user)))
+        return wallets
     },
 
     whoIsWinner: async function (seed, wallets) {
