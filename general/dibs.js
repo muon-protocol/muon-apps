@@ -1,6 +1,8 @@
-const { axios, BN, toBaseUnit } = MuonAppUtils
+const { axios, ethCall } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
+const DibsRandomSeedGenerator = "0x57ec1c88B493C168048D42d5E96b28C1EAd6eEd9"
+const ABI = [{ "inputs": [{ "internalType": "uint32", "name": "roundId_", "type": "uint32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'dibs',
@@ -31,6 +33,12 @@ module.exports = {
         if (userBalance == undefined) throw { message: `Zero balance for this token` }
 
         return userBalance.amount
+    },
+
+    getSeed: async function (roundId) {
+        const { fulfilled, seed } = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], ABI, 56)
+        if (!fulfilled || seed == 0) throw { message: `No seed` }
+        return seed
     },
 
     getRoundWallets: async function (roundId) {
