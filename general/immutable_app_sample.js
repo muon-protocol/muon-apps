@@ -26,7 +26,7 @@ module.exports = {
     switch (method) {
       case "test":
         return [
-          { type: "string", value: appCID },
+          { type: "bytes", value: appCID },
           { type: "uint256", value: testParam }
         ];
       default:
