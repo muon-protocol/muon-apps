@@ -1,4 +1,4 @@
-const { axios, ethCall } = MuonAppUtils
+const { axios, ethCall, BN } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
 const DibsRandomSeedGenerator = "0x57ec1c88B493C168048D42d5E96b28C1EAd6eEd9"
@@ -38,7 +38,7 @@ module.exports = {
     getSeed: async function (roundId) {
         const { fulfilled, seed } = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], ABI, 56)
         if (!fulfilled || seed == 0) throw { message: `No seed` }
-        return seed
+        return new BN(seed)
     },
 
     getRoundWallets: async function (roundId) {
@@ -63,7 +63,7 @@ module.exports = {
     },
 
     whoIsWinner: async function (seed, wallets) {
-        const winnerTicket = seed % wallets.length
+        const winnerTicket = seed.mod(wallets.length)
         return wallets[winnerTicket]
     },
 
