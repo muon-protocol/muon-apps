@@ -37,7 +37,7 @@ module.exports = {
 
     getSeed: async function (roundId) {
         const { fulfilled, seed } = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], ABI, 56)
-        if (!fulfilled || seed == 0) throw { message: `No seed` }
+        if (!fulfilled || new BN(seed).eq(new BN(0))) throw { message: `No seed` }
         return new BN(seed)
     },
 
@@ -63,7 +63,7 @@ module.exports = {
     },
 
     whoIsWinner: async function (seed, wallets) {
-        const winnerTicket = seed.mod(wallets.length)
+        const winnerTicket = seed.mod(new BN(wallets.length))
         return wallets[winnerTicket]
     },
 
