@@ -2,7 +2,9 @@ const { axios, ethCall, BN } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
 const DibsRandomSeedGenerator = "0x57ec1c88B493C168048D42d5E96b28C1EAd6eEd9"
-const ABI = [{ "inputs": [{ "internalType": "uint32", "name": "roundId_", "type": "uint32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
+const DRSG_ABI = [{ "inputs": [{ "internalType": "uint32", "name": "roundId_", "type": "uint32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
+const Dibs = "0x04874d4087E3f611aC555d4Bc1F5BED7bd8B45a0"
+const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'dibs',
@@ -36,7 +38,7 @@ module.exports = {
     },
 
     getSeed: async function (roundId) {
-        const { fulfilled, seed } = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], ABI, 56)
+        const { fulfilled, seed } = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], DRSG_ABI, 56)
         if (!fulfilled || new BN(seed).eq(new BN(0))) throw { message: `No seed` }
         return new BN(seed)
     },
@@ -67,6 +69,12 @@ module.exports = {
         return wallets[winnerTicket]
     },
 
+    isValidUser: async function (user) {
+        const code = await ethCall(Dibs, 'addressToCode', [user], DIBS_ABI, 56)
+        if (code == '0x0000000000000000000000000000000000000000000000000000000000000000') return false
+        return true
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -74,8 +82,12 @@ module.exports = {
         } = request
         switch (method) {
             case 'claim':
-                let { user, token } = params
+                let { user, token, time, sign } = params
+
+                if (!await this.isValidUser(user)) throw { message: 'Not an active user' }
+
                 const balance = await this.getUserBalance(user, token)
+
                 return {
                     user, token, balance
                 }
