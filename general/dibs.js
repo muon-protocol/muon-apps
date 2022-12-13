@@ -1,4 +1,4 @@
-const { axios, ethCall, BN } = MuonAppUtils
+const { axios, ethCall, BN, recoverTypedMessage } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
 const DibsRandomSeedGenerator = "0x57ec1c88B493C168048D42d5E96b28C1EAd6eEd9"
@@ -69,6 +69,24 @@ module.exports = {
         return wallets[winnerTicket]
     },
 
+    isValidSignature: function (forAddress, time, sign) {
+        let typedData = {
+            types: {
+                EIP712Domain: [{ name: 'name', type: 'string' }],
+                Message: [
+                    { type: 'uint256', name: 'time' },
+                    { type: 'address', name: 'forAddress' }
+                ]
+            },
+            domain: { name: 'Dibs' },
+            primaryType: 'Message',
+            message: { user: forAddress, timestamp: time }
+        }
+        let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
+
+        return signer.toLowerCase() === forAddress.toLowerCase()
+    },
+
     isValidUser: async function (user) {
         const code = await ethCall(Dibs, 'addressToCode', [user], DIBS_ABI, 56)
         if (code == '0x0000000000000000000000000000000000000000000000000000000000000000') return false
@@ -85,6 +103,9 @@ module.exports = {
                 let { user, token, time, sign } = params
 
                 if (!await this.isValidUser(user)) throw { message: 'Not an active user' }
+
+                if (!sign) throw { message: 'Request signature undefined' }
+                if (!this.isValidSignature(user, time, sign)) throw { message: 'Request signature mismatch' }
 
                 const balance = await this.getUserBalance(user, token)
 
