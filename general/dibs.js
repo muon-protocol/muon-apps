@@ -102,10 +102,10 @@ module.exports = {
             case 'claim':
                 let { user, token, time, sign } = params
 
-                if (!await this.isValidUser(user)) throw { message: 'Not an active user' }
-
                 if (!sign) throw { message: 'Request signature undefined' }
                 if (!this.isValidSignature(user, time, sign)) throw { message: 'Request signature mismatch' }
+
+                if (!await this.isValidUser(user)) throw { message: 'Not an active user' }
 
                 const balance = await this.getUserBalance(user, token)
 
