@@ -138,7 +138,8 @@ module.exports = {
                 return {
                     positionIds,
                     bidPrices,
-                    askPrices
+                    askPrices,
+                    appCID: await this.APP_CID
                 };
 
             default:
@@ -156,17 +157,19 @@ module.exports = {
         let { method } = request;
         switch (method) {
             case 'signature':
-                let { positionIds, bidPrices, askPrices } = request.data.result;
+                let { positionIds, bidPrices, askPrices, appCID } = request.data.result;
 
                 let res;
                 if (positionIds.length > 1)
                     res = [
+                        { type: "bytes", value: appCID },
                         { type: 'uint256[]', value: positionIds },
                         { type: 'uint256[]', value: bidPrices },
                         { type: 'uint256[]', value: askPrices }
                     ];
                 else
                     res = [
+                        { type: "bytes", value: appCID },
                         { type: 'uint256', value: positionIds[0] },
                         { type: 'uint256', value: bidPrices[0] },
                         { type: 'uint256', value: askPrices[0] }
