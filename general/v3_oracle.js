@@ -47,17 +47,21 @@ module.exports = {
         return connection;
     },
 
-    getSymbolPrice: async function (connection, symbol) {
+    getSymbolPrice: async function (symbol) {
+        const connection = await this.getConnection();
         const price = await connection.getTick(symbol);
         return price;
     },
 
-    getPrices: async function (connection, symbols) {
-        let prices = {};
-        const promises = [];
+    fetchPricesFromFinnhub: async function (symbols) {
 
+    },
+
+    fetchPricesFromMetaAPI: async function (symbols) {
+        const prices = {}
+        const promises = []
         symbols.forEach((symbol) => {
-            promises.push(this.getSymbolPrice(connection, symbol));
+            promises.push(this.getSymbolPrice(symbol));
         });
 
         const result = await Promise.all(promises);
@@ -69,6 +73,39 @@ module.exports = {
                 // last: toBaseUnit(String(tick.last), '18').toString(),
             };
         });
+
+        return prices;
+    },
+
+    fetchPricesFromPriceFeed: async function (symbols, priceFeedId) {
+        switch (priceFeedId) {
+            case 'metaAPI': {
+                return await this.fetchPricesFromMetaAPI(symbols);
+            }
+
+            case 'finnhub': {
+                return await this.fetchPricesFromFinnhub(symbols);
+            }
+
+            default: {
+                return await this.fetchPricesFromMetaAPI(symbols);
+            }
+        }
+    },
+
+    getPrices: async function (symbolsPerMarket) {
+        let prices = {};
+        const promises = [];
+        const priceFeeds = []
+
+        for (let [priceFeedId, symbols] of Object.entries(symbolsPerMarket)) {
+            promises.push(this.fetchPricesFromPriceFeed(symbols, priceFeedId))
+            priceFeeds.push(priceFeedId)
+        }
+
+        const result = await Promise.all(promises);
+
+        priceFeeds.forEach((id, index) => prices[id] = result[index])
 
         return prices;
     },
@@ -87,14 +124,13 @@ module.exports = {
                     if (!Number.isInteger(id)) throw { message: `Invalid positionId` };
                 });
 
-                const { positions, symbols } = await this.getSymbols(positionIds);
-                const connection = await this.getConnection();
-                const prices = await this.getPrices(connection, symbols);
+                const { positions, symbolsPerPriceFeed } = await this.getSymbols(positionIds);
+                const prices = await this.getPrices(symbolsPerPriceFeed);
 
                 let bidPrices = [];
                 let askPrices = [];
                 positions.forEach((position) => {
-                    const price = prices[position.symbol];
+                    const price = prices[position.priceFeedId][position.symbol];
                     bidPrices.push(price.bid);
                     askPrices.push(price.ask);
                 });
