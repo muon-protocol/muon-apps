@@ -4,6 +4,9 @@ const MetaApi = require('metaapi.cloud-sdk').default;
 const token = process.env.TOKEN;
 const accountId = process.env.ACCOUNT_ID;
 
+const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
+const TOLERANCE = scaleUp('0.001')
+const ETH = scaleUp(1);
 const api = new MetaApi(token);
 
 const ABI = [{ "inputs": [{ "internalType": "uint256[]", "name": "positionIds", "type": "uint256[]" }], "name": "getMarketsFromPositionIds", "outputs": [{ "components": [{ "internalType": "uint256", "name": "marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }, { "internalType": "bytes32", "name": "muonPriceFeedId", "type": "bytes32" }, { "internalType": "bytes32", "name": "fundingRateId", "type": "bytes32" }], "internalType": "struct Market[]", "name": "markets", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
@@ -17,12 +20,22 @@ const CHAINS = {
 module.exports = {
     APP_NAME: 'v3_oracle',
 
+    isPriceToleranceOk: function (price, expectedPrice, priceTolerance) {
+        let priceDiff = new BN(price).sub(new BN(expectedPrice)).abs()
+        const priceDiffPercentage = new BN(priceDiff).mul(ETH).div(new BN(expectedPrice))
+        return {
+            isOk: !priceDiffPercentage.gt(new BN(priceTolerance)),
+            priceDiffPercentage: priceDiffPercentage.mul(new BN(100)).div(ETH)
+        }
+    },
+
     getSymbols: async function (positionIds) {
         const markets = await ethCall(ADDRESS, 'getMarketsFromPositionIds', [positionIds], ABI, CHAINS.arbitrum);
         const positions = [];
         const symbolsPerPriceFeed = {};
 
         markets.forEach((market, i) => {
+            if (market.symbol == '') throw { message: 'Invalid PositionId' }
             positions.push({
                 positionId: positionIds[i],
                 symbol: market.symbol,
@@ -158,6 +171,14 @@ module.exports = {
         switch (method) {
             case 'signature':
                 let { positionIds, bidPrices, askPrices, appCID } = request.data.result;
+
+                for (let i = 0; i < positionIds.length; i++) {
+                    if (!this.isPriceToleranceOk(bidPrices[i], request.data.result.bidPrices[i], TOLERANCE).isOk)
+                        throw { message: `Price Tolerance Error` }
+
+                    if (!this.isPriceToleranceOk(askPrices[i], request.data.result.askPrices[i], TOLERANCE).isOk)
+                        throw { message: `Price Tolerance Error` }
+                }
 
                 let res;
                 if (positionIds.length > 1)
