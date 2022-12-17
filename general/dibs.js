@@ -74,8 +74,8 @@ module.exports = {
             types: {
                 EIP712Domain: [{ name: 'name', type: 'string' }],
                 Message: [
-                    { type: 'uint256', name: 'time' },
-                    { type: 'address', name: 'forAddress' }
+                    { type: 'address', name: 'user' },
+                    { type: 'uint256', name: 'timestamp' }
                 ]
             },
             domain: { name: 'Dibs' },
