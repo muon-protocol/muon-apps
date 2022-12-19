@@ -1,4 +1,4 @@
-const { BN, toBaseUnit, ethCall } = MuonAppUtils;
+const { BN, toBaseUnit, ethCall, Web3 } = MuonAppUtils;
 const MetaApi = require('metaapi.cloud-sdk').default;
 
 const token = process.env.TOKEN;
@@ -10,7 +10,7 @@ const ETH = scaleUp(1);
 const api = new MetaApi(token);
 
 const ABI = [{ "inputs": [{ "internalType": "uint256[]", "name": "positionIds", "type": "uint256[]" }], "name": "getMarketsFromPositionIds", "outputs": [{ "components": [{ "internalType": "uint256", "name": "marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }, { "internalType": "bytes32", "name": "muonPriceFeedId", "type": "bytes32" }, { "internalType": "bytes32", "name": "fundingRateId", "type": "bytes32" }], "internalType": "struct Market[]", "name": "markets", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
-const ADDRESS = '0x2650b195C900d782D84Ffeb7a8B5e150aFB5a8bF';
+const ADDRESS = '0x212e1A33350a85c4bdB2607C47E041a65bD14361';
 
 const CHAINS = {
     fantom: 250,
@@ -62,7 +62,7 @@ module.exports = {
 
     getSymbolPrice: async function (symbol) {
         const connection = await this.getConnection();
-        const price = await connection.getTick(symbol);
+        const price = await connection.getSymbolPrice(symbol);
         return price;
     },
 
@@ -92,16 +92,16 @@ module.exports = {
 
     fetchPricesFromPriceFeed: async function (symbols, priceFeedId) {
         switch (priceFeedId) {
-            case 'metaAPI': {
+            case Web3.utils.fromAscii('metaAPI') + '00000000000000000000000000000000000000000000000000': {
                 return await this.fetchPricesFromMetaAPI(symbols);
             }
 
-            case 'finnhub': {
+            case Web3.utils.fromAscii('finnhub'): {
                 return await this.fetchPricesFromFinnhub(symbols);
             }
 
             default: {
-                return await this.fetchPricesFromMetaAPI(symbols);
+                throw { message: 'Invalid PriceFeed' }
             }
         }
     },
