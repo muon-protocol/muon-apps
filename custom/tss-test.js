@@ -15,15 +15,15 @@ const TssApp = {
     }
   },
 
-  hashRequestResult: function (request, result){
+  signParams: function (request, result) {
     switch (request.method) {
       case 'test':
       case 'data-change':
-        return soliditySha3([{type: 'string', value: result.toString()}]);
+        return [{type: 'string', value: result.toString()}]
       default:
         throw { message: `Unknown method: ${request.method}` }
     }
-  },
+  }
 }
 
 module.exports = TssApp

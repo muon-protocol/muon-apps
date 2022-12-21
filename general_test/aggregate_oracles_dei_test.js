@@ -1,6 +1,11 @@
+// require('dotenv').config({ path: './dev-chain/dev-node-1.env' })
+// require('../../core/global')
+
 require('dotenv').config({ path: './dev-chain/dev-node-1.env' })
-require('../../core/global')
-const { dynamicExtend } = require('../../core/utils')
+require('../../src/core/global')
+// const { onRequest } = require('../general/muon_pvrb');
+
+const { dynamicExtend } = require('../../src/core/utils')
 const AggregateOracles = dynamicExtend(
   class {},
   require('../general/aggregate_oracles_dei')

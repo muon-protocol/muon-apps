@@ -1,5 +1,5 @@
 require('dotenv').config({ path: './dev-chain/dev-node-1.env' })
-require('../../core/global')
+require('../../src/core/global')
 const { onRequest } = require('../general/solidly_permissionless_oracles_vwap')
 
 const testLP = async () => {

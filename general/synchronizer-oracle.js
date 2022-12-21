@@ -37,6 +37,10 @@ module.exports = {
             case 'signature':
                 let { tokenId, action, chain, id } = params
 
+                if (!Object.keys(ACTIONS).includes(action)) {
+                    throw { message: "Invalid Action" }
+                }
+
                 const address = web3.utils.toChecksumAddress(tokenId);
 
                 const priceInfo = await axios
@@ -58,7 +62,7 @@ module.exports = {
                     if (priceInfo.ratio <= MIN_RATIO) {
                         throw { message: "invalid price range" }
                     }
-                    if (action == ACTIONS['buy'] && priceInfo.ratio <= MIN_BUY_RATIO) {
+                    if (['buy', 'open'].includes(action) && priceInfo.ratio <= MIN_BUY_RATIO) {
                         throw { message: "invalid price range for buying" }
                     }
 

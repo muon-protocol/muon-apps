@@ -4,6 +4,7 @@ const TssApp = {
   // APP_ID: '5007',
 
   onRequest: async function (request) {
+    throw { message: `MuonApp disabled.` }
     let {method, data: {params={}}} = request;
     switch (method) {
       case 'verify_string':

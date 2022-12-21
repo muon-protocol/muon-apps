@@ -3,7 +3,7 @@ const { axios, soliditySha3, floatToBN } = MuonAppUtils
 const APP_ID = 13
 
 // Random seed function
-// More Info: 
+// More Info:
 // https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
 Math.seed = function(s) {
     var mask = 0xffffffff;
@@ -28,7 +28,8 @@ function getRandomNumber(seed, min, max){
 module.exports = {
   APP_NAME: 'test_rng',
 
-  onRequest: async (request) => {
+  onRequest: async function (request) {
+    throw { message: `MuonApp disabled.` }
     let {
       method,
       data: { params }
@@ -46,10 +47,10 @@ module.exports = {
         */
 
         let seed = request.data.timestamp;
-        
+
         // all nodes will use the same seed and the random
         // number will be the same on all nodes
-        let randomNumber = getRandomNumber(seed, 
+        let randomNumber = getRandomNumber(seed,
           parseInt(min), parseInt(max)
         );
 
@@ -64,7 +65,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: (request, result) => {
+  hashRequestResult: function (request, result) {
     let { method } = request;
     switch (method) {
       case 'randint':

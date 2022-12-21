@@ -43,7 +43,7 @@ module.exports = {
         //TODO: check chain
         if (!contractAddress) throw { message: 'Invalid contarct address' }
         if (!txId) throw { message: 'Invalid deposit Tx Id' }
-        const network = 80001
+        const network = 137
         let result = await ethCall(
           contractAddress,
           'txs',
