@@ -1,8 +1,8 @@
 const { BN, toBaseUnit, ethCall, Web3 } = MuonAppUtils;
 const MetaApi = require('metaapi.cloud-sdk').default;
 
-const token = process.env.TOKEN;
-const accountId = process.env.ACCOUNT_ID;
+const token = process.env.METAAPI_TOKEN;
+const accountId = process.env.METAAPI_ACCOUNT_ID;
 
 const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
 const TOLERANCE = scaleUp('0.001')
