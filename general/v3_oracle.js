@@ -1,8 +1,8 @@
 const { BN, toBaseUnit, ethCall, Web3 } = MuonAppUtils;
 const MetaApi = require('metaapi.cloud-sdk').default;
 
-const token = process.env.TOKEN;
-const accountId = process.env.ACCOUNT_ID;
+const token = process.env.META_API_TOKEN;
+const accountId = process.env.METAAPI_ACCOUNT_ID;
 
 const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
 const TOLERANCE = scaleUp('0.001')
@@ -10,7 +10,7 @@ const ETH = scaleUp(1);
 const api = new MetaApi(token);
 
 const ABI = [{ "inputs": [{ "internalType": "uint256[]", "name": "positionIds", "type": "uint256[]" }], "name": "getMarketsFromPositionIds", "outputs": [{ "components": [{ "internalType": "uint256", "name": "marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }, { "internalType": "bytes32", "name": "muonPriceFeedId", "type": "bytes32" }, { "internalType": "bytes32", "name": "fundingRateId", "type": "bytes32" }], "internalType": "struct Market[]", "name": "markets", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
-const ADDRESS = '0x212e1A33350a85c4bdB2607C47E041a65bD14361';
+const ADDRESS = '0xfe2a4643a8DE03f7706980AA18B0f298B1561497';
 
 const CHAINS = {
     fantom: 250,
@@ -170,7 +170,7 @@ module.exports = {
         let { method } = request;
         switch (method) {
             case 'signature':
-                let { positionIds, bidPrices, askPrices, appCID } = request.data.result;
+                let { positionIds, bidPrices, askPrices } = result;
 
                 for (let i = 0; i < positionIds.length; i++) {
                     if (!this.isPriceToleranceOk(bidPrices[i], request.data.result.bidPrices[i], TOLERANCE).isOk)
@@ -183,17 +183,17 @@ module.exports = {
                 let res;
                 if (positionIds.length > 1)
                     res = [
-                        { type: "bytes", value: appCID },
-                        { type: 'uint256[]', value: positionIds },
-                        { type: 'uint256[]', value: bidPrices },
-                        { type: 'uint256[]', value: askPrices }
+                        { type: "bytes", value: request.data.result.appCID },
+                        { type: 'uint256[]', value: request.data.result.positionIds },
+                        { type: 'uint256[]', value: request.data.result.bidPrices },
+                        { type: 'uint256[]', value: request.data.result.askPrices }
                     ];
                 else
                     res = [
-                        { type: "bytes", value: appCID },
-                        { type: 'uint256', value: positionIds[0] },
-                        { type: 'uint256', value: bidPrices[0] },
-                        { type: 'uint256', value: askPrices[0] }
+                        { type: "bytes", value: request.data.result.appCID },
+                        { type: 'uint256', value: request.data.result.positionIds[0] },
+                        { type: 'uint256', value: request.data.result.bidPrices[0] },
+                        { type: 'uint256', value: request.data.result.askPrices[0] }
                     ];
 
                 return [
