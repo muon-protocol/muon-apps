@@ -10,7 +10,6 @@ const ETH = scaleUp(1);
 const api = new MetaApi(token);
 
 const ABI = [{ "inputs": [{ "internalType": "uint256[]", "name": "positionIds", "type": "uint256[]" }], "name": "getMarketsFromPositionIds", "outputs": [{ "components": [{ "internalType": "uint256", "name": "marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }, { "internalType": "bytes32", "name": "muonPriceFeedId", "type": "bytes32" }, { "internalType": "bytes32", "name": "fundingRateId", "type": "bytes32" }], "internalType": "struct Market[]", "name": "markets", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
-const ADDRESS = '0xfe2a4643a8DE03f7706980AA18B0f298B1561497';
 
 const CHAINS = {
     fantom: 250,
@@ -29,8 +28,8 @@ module.exports = {
         }
     },
 
-    getSymbols: async function (positionIds) {
-        const markets = await ethCall(ADDRESS, 'getMarketsFromPositionIds', [positionIds], ABI, CHAINS.arbitrum);
+    getSymbols: async function (v3, positionIds) {
+        const markets = await ethCall(v3, 'getMarketsFromPositionIds', [positionIds], ABI, CHAINS.arbitrum);
         const positions = [];
         const symbolsPerPriceFeed = {};
 
@@ -130,14 +129,14 @@ module.exports = {
         } = request;
         switch (method) {
             case 'signature':
-                let { positionIds } = params;
+                let { v3, positionIds } = params;
 
                 positionIds = JSON.parse(positionIds);
                 positionIds.forEach((id) => {
                     if (!Number.isInteger(id)) throw { message: `Invalid positionId` };
                 });
 
-                const { positions, symbolsPerPriceFeed } = await this.getSymbols(positionIds);
+                const { positions, symbolsPerPriceFeed } = await this.getSymbols(v3, positionIds);
                 const prices = await this.getPrices(symbolsPerPriceFeed);
 
                 let bidPrices = [];
@@ -149,6 +148,7 @@ module.exports = {
                 });
 
                 return {
+                    v3,
                     positionIds,
                     bidPrices,
                     askPrices,
@@ -170,7 +170,7 @@ module.exports = {
         let { method } = request;
         switch (method) {
             case 'signature':
-                let { positionIds, bidPrices, askPrices } = result;
+                let { v3, positionIds, bidPrices, askPrices, appCID } = result;
 
                 for (let i = 0; i < positionIds.length; i++) {
                     if (!this.isPriceToleranceOk(bidPrices[i], request.data.result.bidPrices[i], TOLERANCE).isOk)
@@ -183,20 +183,20 @@ module.exports = {
                 let res;
                 if (positionIds.length > 1)
                     res = [
-                        { type: "bytes", value: request.data.result.appCID },
                         { type: 'uint256[]', value: request.data.result.positionIds },
                         { type: 'uint256[]', value: request.data.result.bidPrices },
                         { type: 'uint256[]', value: request.data.result.askPrices }
                     ];
                 else
                     res = [
-                        { type: "bytes", value: request.data.result.appCID },
                         { type: 'uint256', value: request.data.result.positionIds[0] },
                         { type: 'uint256', value: request.data.result.bidPrices[0] },
                         { type: 'uint256', value: request.data.result.askPrices[0] }
                     ];
 
                 return [
+                    { type: "bytes", value: appCID },
+                    { type: "address", value: v3 },
                     ...res,
                     { type: 'uint256', value: request.data.timestamp },
                 ];
