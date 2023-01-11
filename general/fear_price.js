@@ -70,7 +70,6 @@ module.exports = {
         }
 
         return [
-          { type: 'uint256', value: this.APP_ID },
           { type: 'uint256', value: request.data.result.fearPrice },
           { type: 'uint256', value: request.data.result.ethPrice },
           { type: 'uint256', value: request.data.timestamp}
