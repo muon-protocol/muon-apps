@@ -46,7 +46,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: function (request, result) {
+  signParams: function (request, result) {
     let { method } = request
     switch (method) {
       case 'get_price':
@@ -69,12 +69,12 @@ module.exports = {
           throw { message: 'ethPrice difference is not acceptable.' }
         }
 
-        return soliditySha3([
+        return [
           { type: 'uint256', value: this.APP_ID },
           { type: 'uint256', value: request.data.result.fearPrice },
           { type: 'uint256', value: request.data.result.ethPrice },
           { type: 'uint256', value: request.data.timestamp}
-        ])
+        ]
 
       default:
         break
