@@ -1,10 +1,12 @@
 const { axios, ethCall, BN, recoverTypedMessage } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
-const DibsRandomSeedGenerator = "0x57ec1c88B493C168048D42d5E96b28C1EAd6eEd9"
+const DibsRandomSeedGenerator = "0xfa200781a931c9F0ef3306092cd4e547772110Ae"
 const DRSG_ABI = [{ "inputs": [{ "internalType": "uint32", "name": "roundId_", "type": "uint32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
-const Dibs = "0x04874d4087E3f611aC555d4Bc1F5BED7bd8B45a0"
+const Dibs = "0x664cE330511653cB2744b8eD50DbA31C6c4C08ca"
 const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
+const DibsLottery = "0x287ed50e4c158dac38e1b7e16c50cd1b2551a300"
+const DIBS_LOTTERY_ABI = []
 
 module.exports = {
     APP_NAME: 'dibs',
@@ -64,7 +66,7 @@ module.exports = {
         return wallets
     },
 
-    whoIsWinner: async function (seed, wallets) {
+    whoIsWinner: function (seed, wallets) {
         const winnerTicket = seed.mod(new BN(wallets.length))
         return wallets[winnerTicket]
     },
@@ -117,9 +119,9 @@ module.exports = {
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
                 const wallets = await this.getRoundWallets(roundId)
-                const winner = await this.whoIsWinner(seed, wallets)
+                const winners = this.determineWinners(winnersPerRound, wallets, seed)
 
-                return { roundId, winner }
+                return { roundId, winners }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -144,10 +146,10 @@ module.exports = {
                 ]
 
             case 'winner':
-                let { roundId, winner } = result
+                let { roundId, winners } = result
                 return [
                     { type: 'uint32', value: roundId },
-                    { type: 'address', value: winner },
+                    { type: 'address[]', value: winners },
                 ]
 
             default:
