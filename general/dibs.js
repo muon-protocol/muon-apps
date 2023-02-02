@@ -40,7 +40,14 @@ module.exports = {
     },
 
     getSeed: async function (roundId) {
-        const { fulfilled, seed } = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], DRSG_ABI, 56)
+        let data
+        try {
+            data = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], DRSG_ABI, 56)
+        }
+        catch (e) {
+            throw { message: 'FAILED_TO_FETCH_SEED', detail: e.message }
+        }
+        const { fulfilled, seed } = data
         if (!fulfilled || new BN(seed).eq(new BN(0))) throw { message: `No seed` }
         return new BN(seed)
     },
