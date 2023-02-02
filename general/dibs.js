@@ -68,9 +68,9 @@ module.exports = {
         const data = await this.postQuery(query)
         if (data.userLotteries.length == 0) throw { message: `No Wallet` }
 
-        let wallets = [];
-        data.userLotteries.forEach((el) => wallets.push(...Array(el.tickets).fill(el.user)))
-        return wallets
+        let tickets = [];
+        data.userLotteries.forEach((el) => tickets.push(...Array(el.tickets).fill(el.user)))
+        return { tickets, walletsCount: data.userLotteries.length }
     },
 
     whoIsWinner: function (seed, wallets) {
@@ -125,8 +125,8 @@ module.exports = {
             case 'winner':
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
-                const wallets = await this.getRoundWallets(roundId)
-                const winners = this.determineWinners(winnersPerRound, wallets, seed)
+                const { tickets, walletsCount } = await this.getRoundWallets(roundId)
+                const winners = this.determineWinners(winnersPerRound, tickets, walletsCount, seed)
 
                 return { roundId, winners }
 
