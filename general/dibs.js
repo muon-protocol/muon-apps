@@ -6,7 +6,7 @@ const DRSG_ABI = [{ "inputs": [{ "internalType": "uint32", "name": "roundId_", "
 const Dibs = "0x664cE330511653cB2744b8eD50DbA31C6c4C08ca"
 const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
 const DibsLottery = "0x287ed50e4c158dac38e1b7e16c50cd1b2551a300"
-const DIBS_LOTTERY_ABI = []
+const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'dibs',
@@ -127,6 +127,7 @@ module.exports = {
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
                 const { tickets, walletsCount } = await this.getRoundWallets(roundId)
+                const winnersPerRound = await ethCall(DibsLottery, 'winnersPerRound', [], DIBS_LOTTERY_ABI, 56)
                 const winners = this.determineWinners(winnersPerRound, tickets, walletsCount, seed)
 
                 return { roundId, winners }
