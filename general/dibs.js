@@ -74,9 +74,21 @@ module.exports = {
         return { tickets, walletsCount: data.userLotteries.length }
     },
 
-    whoIsWinner: function (seed, wallets) {
-        const winnerTicket = seed.mod(new BN(wallets.length))
-        return wallets[winnerTicket]
+    whoIsWinner: function (seed, tickets) {
+        const winnerTicket = seed.mod(new BN(tickets.length))
+        return tickets[winnerTicket]
+    },
+
+    determineWinners: function (winnersPerRound, tickets, walletsCount, seed) {
+        if (walletsCount <= winnersPerRound) return [...new Set(tickets)]
+        let winners = []
+        for (let i = 0; i < winnersPerRound; i++) {
+            const winner = this.whoIsWinner(seed, tickets)
+            winners.push(winner)
+            tickets = tickets.filter((value) => { return value != winner })
+        }
+
+        return winners
     },
 
     isValidSignature: function (forAddress, time, sign) {
