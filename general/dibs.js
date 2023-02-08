@@ -48,7 +48,7 @@ module.exports = {
             throw { message: 'FAILED_TO_FETCH_SEED', detail: e.message }
         }
         const { fulfilled, seed } = data
-        if (!fulfilled || new BN(seed).eq(new BN(0))) throw { message: `No seed` }
+        if (!fulfilled || new BN(seed).eq(new BN(0))) throw { message: `NO_SEED` }
         return new BN(seed)
     },
 
@@ -66,10 +66,11 @@ module.exports = {
         }`
 
         const data = await this.postQuery(query)
-        if (data.userLotteries.length == 0) throw { message: `No Wallet` }
+        if (data.userLotteries.length == 0) throw { message: `NO_WALLETS` }
 
         let tickets = [];
-        data.userLotteries.forEach((el) => tickets.push(...Array(el.tickets).fill(el.user)))
+        data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
+        if (tickets.length == 0) throw { message: 'NO_TICKETS' }
         return { tickets, walletsCount: data.userLotteries.length }
     },
 
