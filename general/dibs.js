@@ -144,6 +144,17 @@ module.exports = {
 
                 return { roundId, winners }
 
+            case 'rank': {
+                let { user, time, sign } = params
+
+                if (!sign) throw { message: 'Request signature undefined' }
+                if (!this.isValidSignature(user, time, sign)) throw { message: 'Request signature mismatch' }
+
+                const rank = await fetchUserRank(user)
+
+                return { user, rank }
+            }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -172,6 +183,15 @@ module.exports = {
                     { type: 'uint32', value: roundId },
                     { type: 'address[]', value: winners },
                 ]
+
+            case 'rank': {
+                let { user, rank } = result
+                return [
+                    { type: 'address', value: user },
+                    { type: 'uint256', value: rank },
+                ]
+
+            }
 
             default:
                 break
