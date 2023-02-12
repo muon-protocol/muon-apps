@@ -115,6 +115,10 @@ module.exports = {
         return true
     },
 
+    getTop10: async function (day) {
+
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -144,16 +148,13 @@ module.exports = {
 
                 return { roundId, winners }
 
-            case 'rank': {
-                let { user, time, sign } = params
+            case 'top10':
+                let { day } = params
 
-                if (!sign) throw { message: 'Request signature undefined' }
-                if (!this.isValidSignature(user, time, sign)) throw { message: 'Request signature mismatch' }
+                const top10 = await this.getTop10(day)
 
-                const rank = await fetchUserRank(user)
+                return { day, top10 }
 
-                return { user, rank }
-            }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -184,11 +185,11 @@ module.exports = {
                     { type: 'address[]', value: winners },
                 ]
 
-            case 'rank': {
-                let { user, rank } = result
+            case 'top10': {
+                let { day, top10 } = result
                 return [
-                    { type: 'address', value: user },
-                    { type: 'uint256', value: rank },
+                    { type: 'uint256', value: day },
+                    { type: 'address[]', value: top10 },
                 ]
 
             }
