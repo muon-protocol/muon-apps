@@ -116,6 +116,21 @@ module.exports = {
     },
 
     getTop10: async function (day) {
+        const query = `{
+            top10: dailyGeneratedVolumes(first: 10, where: {day: "${day}"}, orderBy: amountAsReferrer, orderDirection: desc) {
+              id
+              user
+              amountAsReferrer
+              day
+            }
+        }`
+
+        const data = await this.postQuery(query)
+
+        let top10 = []
+        data.top10.forEach((el) => top10.push(el.user))
+
+        return top10
 
     },
 
