@@ -115,6 +115,25 @@ module.exports = {
         return true
     },
 
+    getTopN: async function (n, day) {
+        const query = `{
+            top10: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}}, orderBy: amountAsReferrer, orderDirection: desc) {
+              id
+              user
+              amountAsReferrer
+              day
+            }
+        }`
+
+        const data = await this.postQuery(query)
+
+        let topN = []
+        data.top10.forEach((el) => topN.push(el.user))
+
+        return topN
+
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -144,6 +163,13 @@ module.exports = {
 
                 return { roundId, winners }
 
+            case 'topN':
+                let { n, day } = params
+
+                const topN = await this.getTopN(n, day)
+
+                return { n, day, topN }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -172,6 +198,16 @@ module.exports = {
                     { type: 'uint32', value: roundId },
                     { type: 'address[]', value: winners },
                 ]
+
+            case 'topN': {
+                let { n, day, topN } = result
+                return [
+                    { type: 'uint256', value: n },
+                    { type: 'uint256', value: day },
+                    { type: 'address[]', value: topN },
+                ]
+
+            }
 
             default:
                 break
