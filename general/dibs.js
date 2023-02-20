@@ -55,7 +55,7 @@ module.exports = {
     getRoundWallets: async function (roundId) {
         const query = `{
             userLotteries (
-                where: {round: "${roundId}"}
+                where: {round: "${roundId}", user_not: "${Dibs}"}
                 orderBy: user
             ) {
                 id
@@ -115,9 +115,9 @@ module.exports = {
         return true
     },
 
-    getTopN: async function (n, day) {
+    getTopLeaderBoardN: async function (n, day) {
         const query = `{
-            top10: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${Dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
@@ -127,10 +127,10 @@ module.exports = {
 
         const data = await this.postQuery(query)
 
-        let topN = []
-        data.top10.forEach((el) => topN.push(el.user))
+        let topLeaderBoardN = []
+        data.topLeaderBoardN.forEach((el) => topLeaderBoardN.push(el.user))
 
-        return topN
+        return topLeaderBoardN
 
     },
 
@@ -154,7 +154,7 @@ module.exports = {
                     user, token, balance
                 }
 
-            case 'winner':
+            case 'lotteryWinner':
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
                 const { tickets, walletsCount } = await this.getRoundWallets(roundId)
@@ -163,12 +163,12 @@ module.exports = {
 
                 return { roundId, winners }
 
-            case 'topN':
+            case 'topLeaderBoardN':
                 let { n, day } = params
 
-                const topN = await this.getTopN(n, day)
+                const topLeaderBoardN = await this.getTopLeaderBoardN(n, day)
 
-                return { n, day, topN }
+                return { n, day, topLeaderBoardN }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -192,19 +192,19 @@ module.exports = {
                     { type: 'uint256', value: balance },
                 ]
 
-            case 'winner':
+            case 'lotteryWinner':
                 let { roundId, winners } = result
                 return [
                     { type: 'uint32', value: roundId },
                     { type: 'address[]', value: winners },
                 ]
 
-            case 'topN': {
-                let { n, day, topN } = result
+            case 'topLeaderBoardN': {
+                let { n, day, topLeaderBoardN } = result
                 return [
                     { type: 'uint256', value: n },
                     { type: 'uint256', value: day },
-                    { type: 'address[]', value: topN },
+                    { type: 'address[]', value: topLeaderBoardN },
                 ]
 
             }
