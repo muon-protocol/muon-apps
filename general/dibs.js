@@ -115,9 +115,9 @@ module.exports = {
         return true
     },
 
-    getTopN: async function (n, day) {
+    getTopLeaderBoardN: async function (n, day) {
         const query = `{
-            top10: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: ${Dibs}}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: ${Dibs}}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
@@ -127,10 +127,10 @@ module.exports = {
 
         const data = await this.postQuery(query)
 
-        let topN = []
-        data.top10.forEach((el) => topN.push(el.user))
+        let topLeaderBoardN = []
+        data.topLeaderBoardN.forEach((el) => topLeaderBoardN.push(el.user))
 
-        return topN
+        return topLeaderBoardN
 
     },
 
@@ -166,7 +166,7 @@ module.exports = {
             case 'topLeaderBoardN':
                 let { n, day } = params
 
-                const topLeaderBoardN = await this.getTopN(n, day)
+                const topLeaderBoardN = await this.getTopLeaderBoardN(n, day)
 
                 return { n, day, topLeaderBoardN }
 
