@@ -55,7 +55,7 @@ module.exports = {
     getRoundWallets: async function (roundId) {
         const query = `{
             userLotteries (
-                where: {round: "${roundId}", user_not: ${Dibs}}
+                where: {round: "${roundId}", user_not: "${Dibs}"}
                 orderBy: user
             ) {
                 id
@@ -117,7 +117,7 @@ module.exports = {
 
     getTopLeaderBoardN: async function (n, day) {
         const query = `{
-            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: ${Dibs}}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${Dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
