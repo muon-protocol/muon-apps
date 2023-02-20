@@ -154,7 +154,7 @@ module.exports = {
                     user, token, balance
                 }
 
-            case 'winner':
+            case 'lotteryWinner':
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
                 const { tickets, walletsCount } = await this.getRoundWallets(roundId)
@@ -163,12 +163,12 @@ module.exports = {
 
                 return { roundId, winners }
 
-            case 'topN':
+            case 'topLeaderBoardN':
                 let { n, day } = params
 
-                const topN = await this.getTopN(n, day)
+                const topLeaderBoardN = await this.getTopN(n, day)
 
-                return { n, day, topN }
+                return { n, day, topLeaderBoardN }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -192,19 +192,19 @@ module.exports = {
                     { type: 'uint256', value: balance },
                 ]
 
-            case 'winner':
+            case 'lotteryWinner':
                 let { roundId, winners } = result
                 return [
                     { type: 'uint32', value: roundId },
                     { type: 'address[]', value: winners },
                 ]
 
-            case 'topN': {
-                let { n, day, topN } = result
+            case 'topLeaderBoardN': {
+                let { n, day, topLeaderBoardN } = result
                 return [
                     { type: 'uint256', value: n },
                     { type: 'uint256', value: day },
-                    { type: 'address[]', value: topN },
+                    { type: 'address[]', value: topLeaderBoardN },
                 ]
 
             }
