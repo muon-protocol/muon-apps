@@ -10,7 +10,7 @@ const ETH = scaleUp(1);
 const api = new MetaApi(token);
 
 const ABI = [{ "inputs": [{ "internalType": "uint256[]", "name": "positionIds", "type": "uint256[]" }], "name": "getMarketsFromPositionIds", "outputs": [{ "components": [{ "internalType": "uint256", "name": "marketId", "type": "uint256" }, { "internalType": "string", "name": "identifier", "type": "string" }, { "internalType": "enum MarketType", "name": "marketType", "type": "uint8" }, { "internalType": "bool", "name": "active", "type": "bool" }, { "internalType": "string", "name": "baseCurrency", "type": "string" }, { "internalType": "string", "name": "quoteCurrency", "type": "string" }, { "internalType": "string", "name": "symbol", "type": "string" }, { "internalType": "bytes32", "name": "muonPriceFeedId", "type": "bytes32" }, { "internalType": "bytes32", "name": "fundingRateId", "type": "bytes32" }], "internalType": "struct Market[]", "name": "markets", "type": "tuple[]" }], "stateMutability": "view", "type": "function" }]
-const ADDRESS = '0xfe2a4643a8DE03f7706980AA18B0f298B1561497';
+const ADDRESS = '0x1570E893853897d806697F252300e32d99218fC2';
 
 const CHAINS = {
     fantom: 250,
