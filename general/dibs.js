@@ -55,12 +55,10 @@ module.exports = {
     getRoundWallets: async function (roundId) {
         const query = `{
             userLotteries (
-                where: {round: "${roundId}", user_not: "${Dibs}"}
+                where: {round: "${roundId}", user_not: "${Dibs}", ticket_gt: "0"}
                 orderBy: user
             ) {
-                id
                 user,
-                round,
                 tickets
             }
         }`
