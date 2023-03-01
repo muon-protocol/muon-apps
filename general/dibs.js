@@ -52,10 +52,10 @@ module.exports = {
         return new BN(seed)
     },
 
-    getRoundWallets: async function (roundId) {
+    createTicketsQuery: function (roundId, lastUser) {
         const query = `{
             userLotteries (
-                where: {round: "${roundId}", user_not: "${Dibs}", ticket_gt: "0"}
+                first: 1000, where: { round: "${roundId}", user_not: "${Dibs}", user_gt: "${lastUser}", tickets_gt: "0"}
                 orderBy: user
             ) {
                 user,
@@ -63,13 +63,26 @@ module.exports = {
             }
         }`
 
-        const data = await this.postQuery(query)
-        if (data.userLotteries.length == 0) throw { message: `NO_WALLETS` }
+        return query
+    },
 
-        let tickets = [];
-        data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
+    getRoundWallets: async function (roundId) {
+        let lastUser = '0x0000000000000000000000000000000000000000'
+        let tickets = []
+        let walletsCount = 0
+
+        do {
+            const query = this.createTicketsQuery(roundId, lastUser)
+            const data = await this.postQuery(query)
+            if (data.userLotteries.length == 0) break
+            data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
+            lastUser = tickets.at(-1)
+            walletsCount += data.userLotteries.length
+        } while (walletsCount % 1000 == 0)
+
         if (tickets.length == 0) throw { message: 'NO_TICKETS' }
-        return { tickets, walletsCount: data.userLotteries.length }
+
+        return { tickets, walletsCount }
     },
 
     whoIsWinner: function (seed, tickets) {
