@@ -66,7 +66,7 @@ module.exports = {
         return query
     },
 
-    getRoundWallets: async function (roundId) {
+    getRoundTickets: async function (roundId) {
         let lastUser = '0x0000000000000000000000000000000000000000'
         let tickets = []
         let walletsCount = 0
@@ -168,7 +168,7 @@ module.exports = {
             case 'lotteryWinner':
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
-                const { tickets, walletsCount } = await this.getRoundWallets(roundId)
+                const { tickets, walletsCount } = await this.getRoundTickets(roundId)
                 const winnersPerRound = await ethCall(DibsLottery, 'winnersPerRound', [], DIBS_LOTTERY_ABI, 56)
                 const winners = this.determineWinners(winnersPerRound, tickets, walletsCount, seed)
 
