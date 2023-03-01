@@ -52,26 +52,37 @@ module.exports = {
         return new BN(seed)
     },
 
-    getRoundWallets: async function (roundId) {
+    createTicketsQuery: function (roundId, lastUser) {
         const query = `{
             userLotteries (
-                where: {round: "${roundId}", user_not: "${Dibs}"}
+                first: 1000, where: { round: "${roundId}", user_not: "${Dibs}", user_gt: "${lastUser}", tickets_gt: "0"}
                 orderBy: user
             ) {
-                id
                 user,
-                round,
                 tickets
             }
         }`
 
-        const data = await this.postQuery(query)
-        if (data.userLotteries.length == 0) throw { message: `NO_WALLETS` }
+        return query
+    },
 
-        let tickets = [];
-        data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
+    getRoundTickets: async function (roundId) {
+        let lastUser = '0x0000000000000000000000000000000000000000'
+        let tickets = []
+        let walletsCount = 0
+
+        do {
+            const query = this.createTicketsQuery(roundId, lastUser)
+            const data = await this.postQuery(query)
+            if (data.userLotteries.length == 0) break
+            data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
+            lastUser = tickets.at(-1)
+            walletsCount += data.userLotteries.length
+        } while (walletsCount % 1000 == 0)
+
         if (tickets.length == 0) throw { message: 'NO_TICKETS' }
-        return { tickets, walletsCount: data.userLotteries.length }
+
+        return { tickets, walletsCount }
     },
 
     whoIsWinner: function (seed, tickets) {
@@ -157,7 +168,7 @@ module.exports = {
             case 'lotteryWinner':
                 let { roundId } = params
                 const seed = await this.getSeed(roundId)
-                const { tickets, walletsCount } = await this.getRoundWallets(roundId)
+                const { tickets, walletsCount } = await this.getRoundTickets(roundId)
                 const winnersPerRound = await ethCall(DibsLottery, 'winnersPerRound', [], DIBS_LOTTERY_ABI, 56)
                 const winners = this.determineWinners(winnersPerRound, tickets, walletsCount, seed)
 
