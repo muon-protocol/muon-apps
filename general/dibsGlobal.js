@@ -1,23 +1,25 @@
 const { axios, ethCall, BN, recoverTypedMessage } = MuonAppUtils
 
-const DRSG_ABI = [{ "inputs": [{ "internalType": "uint32", "name": "roundId_", "type": "uint32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
 const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }]
+
+const DibsRepository = "0x1370Ff0e5CC846a95f34FE50aD90daad17022797"
+const DIBS_REPO_ABI = [{ "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "name": "projects", "outputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "address", "name": "dibs", "type": "address" }, { "internalType": "string", "name": "subgraphEndpoint", "type": "string" }, { "internalType": "uint32", "name": "firstRoundStartTime", "type": "uint32" }, { "internalType": "uint32", "name": "roundDuration", "type": "uint32" }, { "internalType": "bool", "name": "exists", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "roundId", "type": "bytes32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 module.exports = {
     APP_NAME: 'dibsGlobal',
 
-    postQuery: async function (query) {
+    postQuery: async function (query, subgraphEndpoint) {
         const {
             data: { data }
-        } = await axios.post(subgraphUrl, {
+        } = await axios.post(subgraphEndpoint, {
             query: query
         })
 
         return data
     },
 
-    getUserBalance: async function (user, token) {
+    getUserBalance: async function (user, token, subgraphEndPoint) {
         const query = `{
             userBalance: accumulativeTokenBalances(where: {user: "${user}", token: "${token}"}) {
               id
@@ -27,7 +29,7 @@ module.exports = {
             }
           }`
 
-        const data = await this.postQuery(query)
+        const data = await this.postQuery(query, subgraphEndPoint)
 
         const userBalance = data.userBalance[0]
         if (userBalance == undefined) throw { message: `Zero balance for this token` }
@@ -38,7 +40,7 @@ module.exports = {
     getSeed: async function (roundId) {
         let data
         try {
-            data = await ethCall(DibsRandomSeedGenerator, 'getSeed', [roundId], DRSG_ABI, 56)
+            data = await ethCall(DibsRepository, 'getSeed', [roundId], DIBS_REPO_ABI, 137)
         }
         catch (e) {
             throw { message: 'FAILED_TO_FETCH_SEED', detail: e.message }
@@ -48,10 +50,10 @@ module.exports = {
         return new BN(seed)
     },
 
-    createTicketsQuery: function (roundId, lastUser) {
+    createTicketsQuery: function (round, lastUser) {
         const query = `{
             userLotteries (
-                first: 1000, where: { round: "${roundId}", user_not: "${Dibs}", user_gt: "${lastUser}", tickets_gt: "0"}
+                first: 1000, where: { round: "${round}", user_not: "${dibs}", user_gt: "${lastUser}", tickets_gt: "0"}
                 orderBy: user
             ) {
                 user,
@@ -62,14 +64,14 @@ module.exports = {
         return query
     },
 
-    getRoundTickets: async function (roundId) {
+    getRoundTickets: async function (round, subgraphEndpoint) {
         let lastUser = '0x0000000000000000000000000000000000000000'
         let tickets = []
         let walletsCount = 0
 
         do {
-            const query = this.createTicketsQuery(roundId, lastUser)
-            const data = await this.postQuery(query)
+            const query = this.createTicketsQuery(round, lastUser)
+            const data = await this.postQuery(query, subgraphEndpoint)
             if (data.userLotteries.length == 0) break
             data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
             lastUser = tickets.at(-1)
@@ -116,15 +118,15 @@ module.exports = {
         return signer.toLowerCase() === forAddress.toLowerCase()
     },
 
-    isValidUser: async function (user) {
-        const code = await ethCall(Dibs, 'addressToCode', [user], DIBS_ABI, 56)
+    isValidUser: async function (dibs, user, chainId) {
+        const code = await ethCall(dibs, 'addressToCode', [user], DIBS_ABI, chainId)
         if (code == '0x0000000000000000000000000000000000000000000000000000000000000000') return false
         return true
     },
 
-    getTopLeaderBoardN: async function (n, day) {
+    getTopLeaderBoardN: async function (n, day, subgraphEndPoint) {
         const query = `{
-            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${Dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
@@ -132,7 +134,7 @@ module.exports = {
             }
         }`
 
-        const data = await this.postQuery(query)
+        const data = await this.postQuery(query, subgraphEndPoint)
 
         let topLeaderBoardN = []
         data.topLeaderBoardN.forEach((el) => topLeaderBoardN.push(el.user))
@@ -141,41 +143,51 @@ module.exports = {
 
     },
 
+    fetchProject: async function (projectId) {
+        const { dibs, chainId, subgraphEndPoint } = await ethCall(DibsRepository, 'projects', [projectId], DIBS_REPO_ABI, 137)
+        return { dibs, chainId, subgraphEndPoint }
+    },
+
     onRequest: async function (request) {
         let {
             method,
             data: { params }
         } = request
         switch (method) {
-            case 'claim':
-                let { user, token, time, sign } = params
+            case 'claim': {
+                let { projectId, user, token, time, sign } = params
 
                 if (!sign) throw { message: 'Request signature undefined' }
                 if (!this.isValidSignature(user, time, sign)) throw { message: 'Request signature mismatch' }
 
-                if (!await this.isValidUser(user)) throw { message: 'Not an active user' }
+                const { dibs, chainId, subgraphEndpoint } = await this.fetchProject(projectId)
+                if (!await this.isValidUser(dibs, user, chainId)) throw { message: 'Not an active user' }
 
-                const balance = await this.getUserBalance(user, token)
+                const balance = await this.getUserBalance(user, token, subgraphEndpoint)
 
                 return {
-                    user, token, balance
+                    projectId, user, token, balance
                 }
+            }
 
-            case 'lotteryWinner':
-                let { roundId } = params
-                const seed = await this.getSeed(roundId)
-                const { tickets, walletsCount } = await this.getRoundTickets(roundId)
-                const winnersPerRound = await ethCall(DibsLottery, 'winnersPerRound', [], DIBS_LOTTERY_ABI, 56)
+            case 'lotteryWinner': {
+                let { projectId, round } = params
+                const { dibs, chainId, subgraphEndpoint } = await this.fetchProject(projectId)
+                const { tickets, walletsCount } = await this.getRoundTickets(round, subgraphEndpoint)
+                const { seed, roundId } = await this.fetchSeed(projectNumber, round)
+                const winnersPerRound = await this.fetchWinnersPerRound(dibs, chainId)
                 const winners = this.determineWinners(winnersPerRound, tickets, walletsCount, seed)
 
                 return { roundId, winners }
+            }
 
             case 'topLeaderBoardN':
-                let { n, day } = params
+                let { projectId, n, day } = params
 
-                const topLeaderBoardN = await this.getTopLeaderBoardN(n, day)
+                const { subgraphEndpoint } = await this.fetchProject(projectId)
+                const topLeaderBoardN = await this.getTopLeaderBoardN(n, day, subgraphEndpoint)
 
-                return { n, day, topLeaderBoardN }
+                return { projectId, n, day, topLeaderBoardN }
 
             default:
                 throw { message: `Unknown method ${params}` }
@@ -192,8 +204,9 @@ module.exports = {
         let { method } = request;
         switch (method) {
             case 'claim':
-                let { user, token, balance } = result
+                let { projectId, user, token, balance } = result
                 return [
+                    { type: 'bytes32', value: projectId },
                     { type: 'address', value: user },
                     { type: 'address', value: token },
                     { type: 'uint256', value: balance },
@@ -202,13 +215,14 @@ module.exports = {
             case 'lotteryWinner':
                 let { roundId, winners } = result
                 return [
-                    { type: 'uint32', value: roundId },
+                    { type: 'bytes32', value: roundId },
                     { type: 'address[]', value: winners },
                 ]
 
             case 'topLeaderBoardN': {
-                let { n, day, topLeaderBoardN } = result
+                let { projectId, n, day, topLeaderBoardN } = result
                 return [
+                    { type: 'bytes32', value: projectId },
                     { type: 'uint256', value: n },
                     { type: 'uint256', value: day },
                     { type: 'address[]', value: topLeaderBoardN },
