@@ -16,7 +16,8 @@ module.exports = {
                 else
                     throw `get price failed`;
                 return {price};
-
+            case 'test':
+                return {test: "OK"};
             default:
                 throw `Unknown method ${method}`
         }
@@ -24,11 +25,15 @@ module.exports = {
 
     signParams: function (request, result) {
         let {method} = request;
-        let {price} = result;
+        let {price, test} = result;
         switch (method) {
             case 'get_price':
                 return [
                     {type: 'uint32', value: price}
+                ];
+            case 'test':
+                return [
+                    {type: 'string', value: test}
                 ];
             default:
                 throw `Unknown method '${method}'`
