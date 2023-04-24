@@ -1,6 +1,6 @@
-const { axios, ethCall, BN, recoverTypedMessage } = MuonAppUtils
+const { axios, ethCall, BN, recoverTypedMessage, soliditySha3 } = MuonAppUtils
 
-const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
+const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "dibsLottery", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }]
 const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }]
 
 const DibsRepository = "0x1370Ff0e5CC846a95f34FE50aD90daad17022797"
@@ -50,7 +50,7 @@ module.exports = {
         return new BN(seed)
     },
 
-    createTicketsQuery: function (round, lastUser) {
+    createTicketsQuery: function (dibs, round, lastUser) {
         const query = `{
             userLotteries (
                 first: 1000, where: { round: "${round}", user_not: "${dibs}", user_gt: "${lastUser}", tickets_gt: "0"}
@@ -64,13 +64,13 @@ module.exports = {
         return query
     },
 
-    getRoundTickets: async function (round, subgraphEndpoint) {
+    getRoundTickets: async function (dibs, round, subgraphEndpoint) {
         let lastUser = '0x0000000000000000000000000000000000000000'
         let tickets = []
         let walletsCount = 0
 
         do {
-            const query = this.createTicketsQuery(round, lastUser)
+            const query = this.createTicketsQuery(dibs, round, lastUser)
             const data = await this.postQuery(query, subgraphEndpoint)
             if (data.userLotteries.length == 0) break
             data.userLotteries.forEach((el) => tickets.push(...Array(parseInt(el.tickets)).fill(el.user)))
@@ -124,7 +124,7 @@ module.exports = {
         return true
     },
 
-    getTopLeaderBoardN: async function (n, day, subgraphEndPoint) {
+    getTopLeaderBoardN: async function (dibs, n, day, subgraphEndPoint) {
         const query = `{
             topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
@@ -144,8 +144,25 @@ module.exports = {
     },
 
     fetchProject: async function (projectId) {
-        const { dibs, chainId, subgraphEndPoint } = await ethCall(DibsRepository, 'projects', [projectId], DIBS_REPO_ABI, 137)
-        return { dibs, chainId, subgraphEndPoint }
+        const { dibs, chainId, subgraphEndpoint } = await ethCall(DibsRepository, 'projects', [projectId], DIBS_REPO_ABI, 137)
+        return { dibs, chainId, subgraphEndpoint }
+    },
+
+    fetchSeed: async function (projectId, round) {
+        const roundId = soliditySha3([
+            { type: 'bytes32', value: projectId },
+            { type: 'uint32', value: round },
+        ])
+        const seed = await this.getSeed(roundId)
+
+        return { seed, roundId }
+    },
+
+    fetchWinnersPerRound: async function (dibs, chainId) {
+        const dibsLottery = await ethCall(dibs, 'dibsLottery', [], DIBS_ABI, chainId)
+        const winnersPerRound = await ethCall(dibsLottery, 'winnersPerRound', [], DIBS_LOTTERY_ABI, chainId)
+
+        return winnersPerRound
     },
 
     onRequest: async function (request) {
@@ -173,8 +190,8 @@ module.exports = {
             case 'lotteryWinner': {
                 let { projectId, round } = params
                 const { dibs, chainId, subgraphEndpoint } = await this.fetchProject(projectId)
-                const { tickets, walletsCount } = await this.getRoundTickets(round, subgraphEndpoint)
-                const { seed, roundId } = await this.fetchSeed(projectNumber, round)
+                const { tickets, walletsCount } = await this.getRoundTickets(dibs, round, subgraphEndpoint)
+                const { seed, roundId } = await this.fetchSeed(projectId, round)
                 const winnersPerRound = await this.fetchWinnersPerRound(dibs, chainId)
                 const winners = this.determineWinners(winnersPerRound, tickets, walletsCount, seed)
 
@@ -184,8 +201,8 @@ module.exports = {
             case 'topLeaderBoardN':
                 let { projectId, n, day } = params
 
-                const { subgraphEndpoint } = await this.fetchProject(projectId)
-                const topLeaderBoardN = await this.getTopLeaderBoardN(n, day, subgraphEndpoint)
+                const { dibs, subgraphEndpoint } = await this.fetchProject(projectId)
+                const topLeaderBoardN = await this.getTopLeaderBoardN(dibs, n, day, subgraphEndpoint)
 
                 return { projectId, n, day, topLeaderBoardN }
 
