@@ -7,17 +7,17 @@ module.exports = {
     let {
       method,
       data: { params }
-    } = request
+    } = request;
     switch (method) {
       case 'eth-price':
-        const response = await axios
+        var response = await axios
           .get('https://api.coinbase.com/v2/exchange-rates?currency=ETH')
-        const price = parseInt(response.data.data.rates.USD)
+        var price = parseInt(response.data.data.rates.USD)
         return { price }
       case 'price':
         let { token, unit } = params
-        const response = await axios.get(`https://api.coinbase.com/v2/exchange-rates?currency=${token}`)
-        const price = parseInt(response.data.data.rates[unit])
+        var response = await axios.get(`https://api.coinbase.com/v2/exchange-rates?currency=${token}`)
+        var price = parseInt(response.data.data.rates[unit])
         return { price }
 
       default:
