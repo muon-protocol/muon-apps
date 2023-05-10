@@ -128,7 +128,7 @@ module.exports = {
 
     getTopLeaderBoardN: async function (n, day) {
         const query = `{
-            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${Dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${Dibs}", amountAsReferrer_gt: 0}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
