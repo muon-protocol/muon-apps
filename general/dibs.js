@@ -216,6 +216,7 @@ module.exports = {
                     { type: 'uint256', value: n },
                     { type: 'uint256', value: day },
                     { type: 'address[]', value: topLeaderBoardN },
+                    { type: 'uint256', value: request.data.timestamp },
                 ]
 
             }
