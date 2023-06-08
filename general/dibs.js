@@ -181,6 +181,12 @@ module.exports = {
 
                 return { n, day, topLeaderBoardN }
 
+            case 'platfromClaim': {
+                let { token } = params
+                const balance = await this.getPlatformBalance(token)
+                return { token, balance }
+            }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -219,6 +225,16 @@ module.exports = {
                     { type: 'uint256', value: request.data.timestamp },
                 ]
 
+            }
+
+            case 'platfromClaim': {
+                let { token, balance } = result
+                return [
+                    { type: 'string', value: "PLATFORM" },
+                    { type: 'address', value: token },
+                    { type: 'uint256', value: balance },
+                    { type: 'uint256', value: request.data.timestamp },
+                ]
             }
 
             default:
