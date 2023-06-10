@@ -1,4 +1,4 @@
-const { axios, ethCall, BN, recoverTypedMessage } = MuonAppUtils
+const { axios, ethCall, BN, recoverTypedMessage, toBaseUnit } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
 const DibsRandomSeedGenerator = "0xfa200781a931c9F0ef3306092cd4e547772110Ae"
@@ -7,7 +7,10 @@ const Dibs = "0x664cE330511653cB2744b8eD50DbA31C6c4C08ca"
 const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
 const DibsLottery = "0x287ed50e4c158dac38e1b7e16c50cd1b2551a300"
 const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }]
-
+const ERC20_ABI = [{ "constant": true, "inputs": [{ "name": "_owner", "type": "address" }], "name": "balanceOf", "outputs": [{ "name": "balance", "type": "uint256" }], "payable": false, "stateMutability": "view", "type": "function" }]
+const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
+const VALID_TOLERANCE = scaleUp('0.01')
+const SCALE = new BN(toBaseUnit('1', '18'))
 module.exports = {
     APP_NAME: 'dibs',
 
@@ -143,6 +146,24 @@ module.exports = {
 
         return topLeaderBoardN
 
+    },
+
+    getPlatformBalance: async function (token) {
+        const dibsBalance = await ethCall(token, 'balanceOf', [Dibs], ERC20_ABI, 56)
+        const query = `{
+            notClaimed: totalNotClaimeds(where: {token: "${token}"}) {
+              id
+              token
+              amount
+            }
+          }`
+
+        const data = await this.postQuery(query)
+
+        const totalNotClaimed = data.notClaimed[0]
+        if (totalNotClaimed == undefined) throw { message: `Invalid token address` }
+
+        return new BN(dibsBalance).sub(new BN(totalNotClaimed.amount)).toString()
     },
 
     onRequest: async function (request) {
