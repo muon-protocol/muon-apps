@@ -11,8 +11,18 @@ const ERC20_ABI = [{ "constant": true, "inputs": [{ "name": "_owner", "type": "a
 const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
 const VALID_TOLERANCE = scaleUp('0.01')
 const SCALE = new BN(toBaseUnit('1', '18'))
+
 module.exports = {
     APP_NAME: 'dibs',
+
+    isToleranceOk: function (amount, expectedAmount, validTolerance) {
+        let diff = new BN(amount).sub(new BN(expectedAmount)).abs()
+        const diffPercentage = new BN(diff).mul(SCALE).div(new BN(expectedAmount))
+        return {
+            isOk: !diffPercentage.gt(new BN(validTolerance)),
+            diffPercentage: diffPercentage.mul(new BN(100)).div(SCALE)
+        }
+    },
 
     postQuery: async function (query) {
         const {
@@ -250,10 +260,14 @@ module.exports = {
 
             case 'platfromClaim': {
                 let { token, balance } = result
+
+                if (!this.isToleranceOk(balance, request.data.result.balance, VALID_TOLERANCE).isOk)
+                    throw { message: `Tolerance Error` }
+
                 return [
                     { type: 'string', value: "PLATFORM" },
                     { type: 'address', value: token },
-                    { type: 'uint256', value: balance },
+                    { type: 'uint256', value: request.data.result.balance },
                     { type: 'uint256', value: request.data.timestamp },
                 ]
             }
