@@ -6,18 +6,24 @@ const CHAINS = {
     mainnet: 1,
     fantom: 250,
     polygon: 137,
+    bsc: 56,
+    avax: 43114,
 }
 
 const networksWeb3 = {
-    [CHAINS.mainnet]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_ETH)),
-    [CHAINS.fantom]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM)),
-    [CHAINS.polygon]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_POLYGON)),
+    [CHAINS.mainnet]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_ETH) || "https://rpc.ankr.com/eth"),
+    [CHAINS.fantom]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM) || "https://rpc.ankr.com/fantom"),
+    [CHAINS.polygon]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_POLYGON) || "https://rpc.ankr.com/polygon"),
+    [CHAINS.bsc]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_BSC) || "https://rpc.ankr.com/bsc"),
+    [CHAINS.avax]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_AVAX) || "https://rpc.ankr.com/avalanche"),
 }
 
 const networksBlocksPerMinute = {
     [CHAINS.mainnet]: 5,
     [CHAINS.fantom]: 52,
     [CHAINS.polygon]: 29,
+    [CHAINS.bsc]: 12,
+    [CHAINS.avax]: 55,
 }
 
 const THRESHOLD = 2
@@ -26,7 +32,12 @@ const Q112 = new BN(2).pow(new BN(112))
 const ETH = new BN(toBaseUnit('1', '18'))
 
 const UNISWAPV2_PAIR_ABI = [{ "constant": true, "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint112", "name": "reserve0", "type": "uint112" }, { "indexed": false, "internalType": "uint112", "name": "reserve1", "type": "uint112" }], "name": "Sync", "type": "event" }, { "inputs": [], "name": "price0CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "price1CumulativeLast", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalSupply", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
-const SOLIDLY_PAIR_ABI = [{ "inputs": [], "name": "observationLength", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "tokenIn", "type": "address" }, { "internalType": "uint256", "name": "amountIn", "type": "uint256" }, { "internalType": "uint256", "name": "points", "type": "uint256" }, { "internalType": "uint256", "name": "window", "type": "uint256" }], "name": "sample", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "metadata", "outputs": [{ "internalType": "uint256", "name": "dec0", "type": "uint256" }, { "internalType": "uint256", "name": "dec1", "type": "uint256" }, { "internalType": "uint256", "name": "r0", "type": "uint256" }, { "internalType": "uint256", "name": "r1", "type": "uint256" }, { "internalType": "bool", "name": "st", "type": "bool" }, { "internalType": "address", "name": "t0", "type": "address" }, { "internalType": "address", "name": "t1", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalSupply", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
+const SOLIDLY_PAIR_ABI = [{ "inputs": [], "name": "observationLength", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "tokenIn", "type": "address" }, { "internalType": "uint256", "name": "amountIn", "type": "uint256" }, { "internalType": "uint256", "name": "points", "type": "uint256" }, { "internalType": "uint256", "name": "window", "type": "uint256" }], "name": "sample", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "metadata", "outputs": [{ "internalType": "uint256", "name": "dec0", "type": "uint256" }, { "internalType": "uint256", "name": "dec1", "type": "uint256" }, { "internalType": "uint256", "name": "r0", "type": "uint256" }, { "internalType": "uint256", "name": "r1", "type": "uint256" }, { "internalType": "bool", "name": "st", "type": "bool" }, { "internalType": "address", "name": "t0", "type": "address" }, { "internalType": "address", "name": "t1", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalSupply", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint256", "name": "reserve0", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "reserve1", "type": "uint256" }], "name": "Sync", "type": "event" }, { "inputs": [], "name": "getReserves", "outputs": [{ "internalType": "uint256", "name": "_reserve0", "type": "uint256" }, { "internalType": "uint256", "name": "_reserve1", "type": "uint256" }, { "internalType": "uint256", "name": "_blockTimestampLast", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
+
+const ABIS = {
+    UniV2: UNISWAPV2_PAIR_ABI,
+    Solidly: SOLIDLY_PAIR_ABI,
+}
 
 module.exports = {
     CHAINS,
@@ -55,19 +66,19 @@ module.exports = {
         return price0
     },
 
-    getSeed: async function (chainId, pairAddress, blocksToSeed, toBlock) {
+    getSeed: async function (chainId, pairAddress, blocksToSeed, toBlock, abiStyle) {
         const w3 = networksWeb3[chainId]
         const seedBlockNumber = toBlock - blocksToSeed
 
-        const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+        const pair = new w3.eth.Contract(ABIS[abiStyle], pairAddress)
         const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
         const price0 = this.calculateInstantPrice(_reserve0, _reserve1)
         return { price0: price0, blockNumber: seedBlockNumber }
     },
 
-    getSyncEvents: async function (chainId, seedBlockNumber, pairAddress, blocksToSeed) {
+    getSyncEvents: async function (chainId, seedBlockNumber, pairAddress, blocksToSeed, abiStyle) {
         const w3 = networksWeb3[chainId]
-        const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+        const pair = new w3.eth.Contract(ABIS[abiStyle], pairAddress)
         const options = {
             fromBlock: seedBlockNumber + 1,
             toBlock: seedBlockNumber + blocksToSeed
@@ -243,14 +254,6 @@ module.exports = {
         const seedBlock = toBlock - blocksToFuse
 
         const fusePrice = await this.getFusePrice(w3, pairAddress, toBlock, seedBlock, abiStyle)
-        if (fusePrice.price0.eq(new BN(0)))
-            return {
-                isOk0: true,
-                isOk1: true,
-                priceDiffPercentage0: new BN(0),
-                priceDiffPercentage1: new BN(0),
-                block: fusePrice.blockNumber
-            }
         const checkResult0 = this.isPriceToleranceOk(price.price0, fusePrice.price0, fusePriceTolerance)
         const checkResult1 = this.isPriceToleranceOk(price.price1, Q112.mul(Q112).div(fusePrice.price0), fusePriceTolerance)
 
@@ -267,9 +270,9 @@ module.exports = {
         const blocksToSeed = networksBlocksPerMinute[chainId] * pair.minutesToSeed
         const blocksToFuse = networksBlocksPerMinute[chainId] * pair.minutesToFuse
         // get seed price
-        const seed = await this.getSeed(chainId, pair.address, blocksToSeed, toBlock)
+        const seed = await this.getSeed(chainId, pair.address, blocksToSeed, toBlock, abiStyle)
         // get sync events that are emitted after seed block
-        const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pair.address, blocksToSeed)
+        const syncEventsMap = await this.getSyncEvents(chainId, seed.blockNumber, pair.address, blocksToSeed, abiStyle)
         // create an array contains a price for each block mined after seed block 
         const prices = this.createPrices(seed, syncEventsMap, blocksToSeed)
         // remove outlier prices
