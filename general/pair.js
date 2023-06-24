@@ -14,7 +14,7 @@ const networksWeb3 = {
     [CHAINS.mainnet]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_ETH || "https://rpc.ankr.com/eth")),
     [CHAINS.fantom]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM || "https://rpc.ankr.com/fantom")),
     [CHAINS.polygon]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_POLYGON || "https://rpc.ankr.com/polygon")),
-    [CHAINS.bsc]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_BSC || "https://rpc.ankr.com/bsc")),
+    [CHAINS.bsc]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_BSC || "https://1rpc.io/bnb")),
     [CHAINS.avax]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_AVAX || "https://rpc.ankr.com/avalanche")),
 }
 
