@@ -1,4 +1,4 @@
-const { axios, ethCall, BN, recoverTypedMessage, soliditySha3 } = MuonAppUtils
+const { axios, ethCall, BN, recoverTypedMessage, soliditySha3, toBaseUnit } = MuonAppUtils
 
 const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "dibsLottery", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }]
 const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }]
@@ -6,8 +6,21 @@ const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": 
 const DibsRepository = "0x1370Ff0e5CC846a95f34FE50aD90daad17022797"
 const DIBS_REPO_ABI = [{ "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "name": "projects", "outputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "address", "name": "dibs", "type": "address" }, { "internalType": "string", "name": "subgraphEndpoint", "type": "string" }, { "internalType": "uint32", "name": "firstRoundStartTime", "type": "uint32" }, { "internalType": "uint32", "name": "roundDuration", "type": "uint32" }, { "internalType": "bool", "name": "exists", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "roundId", "type": "bytes32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
+const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
+const VALID_TOLERANCE = scaleUp('0.01')
+const SCALE = scaleUp('1')
+
 module.exports = {
     APP_NAME: 'dibsGlobal',
+
+    isToleranceOk: function (amount, expectedAmount, validTolerance) {
+        let diff = new BN(amount).sub(new BN(expectedAmount)).abs()
+        const diffPercentage = new BN(diff).mul(SCALE).div(new BN(expectedAmount))
+        return {
+            isOk: !diffPercentage.gt(new BN(validTolerance)),
+            diffPercentage: diffPercentage.mul(new BN(100)).div(SCALE)
+        }
+    },
 
     postQuery: async function (query, subgraphEndpoint) {
         const {
@@ -165,6 +178,22 @@ module.exports = {
         return winnersPerRound
     },
 
+    getPlatformBalance: async function (token, subgraphEndPoint) {
+        const query = `{
+            platformBalance: accumulativeTokenBalances(where: {id: "${token}-PLATFORM"}) {
+              token
+              amount
+            }
+          }`
+
+        const data = await this.postQuery(query, subgraphEndPoint)
+
+        const platformBalance = data.platformBalance[0]
+        if (platformBalance == undefined) throw { message: `Invalid token address` }
+
+        return platformBalance.amount
+    },
+
     onRequest: async function (request) {
         let {
             method,
@@ -206,6 +235,13 @@ module.exports = {
 
                 return { projectId, n, day, topLeaderBoardN }
 
+            case 'platformClaim': {
+                let { projectId, token } = params
+                const { subgraphEndpoint } = await this.fetchProject(projectId)
+                const balance = await this.getPlatformBalance(token, subgraphEndpoint)
+                return { projectId, token, balance }
+            }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -246,6 +282,21 @@ module.exports = {
                     { type: 'uint256', value: request.data.timestamp },
                 ]
 
+            }
+
+            case 'platformClaim': {
+                let { projectId, token, balance } = result
+
+                if (!this.isToleranceOk(balance, request.data.result.balance, VALID_TOLERANCE).isOk)
+                    throw { message: `Tolerance Error` }
+
+                return [
+                    { type: 'bytes32', value: projectId },
+                    { type: 'string', value: "PLATFORM" },
+                    { type: 'address', value: token },
+                    { type: 'uint256', value: request.data.result.balance },
+                    { type: 'uint256', value: request.data.timestamp },
+                ]
             }
 
             default:
