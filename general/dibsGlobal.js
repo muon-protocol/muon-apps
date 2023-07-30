@@ -1,4 +1,4 @@
-const { axios, ethCall, BN, recoverTypedMessage, soliditySha3, toBaseUnit } = MuonAppUtils
+const { axios, ethCall, BN, recoverTypedSignature, soliditySha3, toBaseUnit } = MuonAppUtils
 
 const DIBS_ABI = [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "addressToCode", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "dibsLottery", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }]
 const DIBS_LOTTERY_ABI = [{ "inputs": [], "name": "winnersPerRound", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }]
@@ -126,7 +126,8 @@ module.exports = {
             primaryType: 'Message',
             message: { user: forAddress, timestamp: time }
         }
-        let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
+
+        let signer = recoverTypedSignature({data: typedData, signature: sign, version: "V4"});
 
         return signer.toLowerCase() === forAddress.toLowerCase()
     },
