@@ -180,7 +180,7 @@ module.exports = {
 
     getPlatformBalance: async function (token, subgraphEndPoint) {
         const query = `{
-            platformBalance: accumulativeTokenBalances(where: {id: "${token}-PLATFORM"}) {
+            platformBalance: accumulativeTokenBalances(where: {id: "${token.toLowerCase()}-PLATFORM"}) {
               token
               amount
             }
