@@ -23,13 +23,17 @@ module.exports = {
     },
 
     postQuery: async function (query, subgraphEndpoint) {
-        const {
-            data: { data }
-        } = await axios.post(subgraphEndpoint, {
+        const result = await axios.post(subgraphEndpoint, {
             query: query
         })
 
-        return data
+        const data = result.data
+
+        if (data.errors) {
+            throw data.errors
+        }
+
+        return data.data
     },
 
     getUserBalance: async function (user, token, subgraphEndPoint) {
