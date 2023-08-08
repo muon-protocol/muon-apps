@@ -11,11 +11,11 @@ const CHAINS = {
 }
 
 const networksWeb3 = {
-    [CHAINS.mainnet]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_ETH || "https://rpc.ankr.com/eth")),
-    [CHAINS.fantom]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_FTM || "https://rpc.ankr.com/fantom")),
-    [CHAINS.polygon]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_POLYGON || "https://rpc.ankr.com/polygon")),
-    [CHAINS.bsc]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_BSC || "https://1rpc.io/bnb")),
-    [CHAINS.avax]: new Web3(new HttpProvider(process.env.WEB3_PROVIDER_AVAX || "https://rpc.ankr.com/avalanche")),
+    [CHAINS.mainnet]: new Web3("https://rpc.ankr.com/eth"),
+    [CHAINS.fantom]: new Web3("https://rpc.ankr.com/fantom"),
+    [CHAINS.polygon]: new Web3("https://rpc.ankr.com/polygon"),
+    [CHAINS.bsc]: new Web3("https://rpc.ankr.com/bsc"),
+    [CHAINS.avax]: new Web3("https://rpc.ankr.com/avalanche"),
 }
 
 const networksBlocksPerMinute = {
@@ -69,9 +69,8 @@ module.exports = {
     getSeed: async function (chainId, pairAddress, blocksToSeed, toBlock, abiStyle) {
         const w3 = networksWeb3[chainId]
         const seedBlockNumber = toBlock - blocksToSeed
-
         const pair = new w3.eth.Contract(ABIS[abiStyle], pairAddress)
-        const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(seedBlockNumber)
+        const { _reserve0, _reserve1 } = await pair.methods.getReserves().call(undefined, seedBlockNumber)
         const price0 = this.calculateInstantPrice(_reserve0, _reserve1)
         return { price0: price0, blockNumber: seedBlockNumber }
     },
@@ -150,25 +149,48 @@ module.exports = {
         return averagePrice
     },
 
-    makeBatchRequest: function (w3, calls) {
+    makeEthCallRequest: function (id, contract, method, inputs, toBlock) {
+        return {
+            jsonrpc: '2.0',
+            id,
+            method: 'eth_call',
+            params: [
+                {
+                    to: contract.address,
+                    data: contract.methods[method](...inputs).encodeABI()
+                },
+                "0x" + toBlock.toString(16),
+            ]
+
+        }
+    },
+
+    makeEthGetBlockRequest: function (id, toBlock) {
+        return {
+            jsonrpc: '2.0',
+            id,
+            method: 'eth_getBlockByNumber',
+            params: ['0x' + toBlock.toString(16), false]
+        }
+
+    },
+
+    makeBatchRequest: async function (w3, requests) {
         let batch = new w3.BatchRequest();
 
-        let promises = calls.map(call => {
-            return new Promise((res, rej) => {
-                let req = call.req.request(call.block, (err, data) => {
-                    if (err) rej(err);
-                    else res(data)
-                });
-                batch.add(req)
-            })
-        })
-        batch.execute()
+        requests.forEach((request) => batch.add(request.req))
+        const responses = await batch.execute()
 
-        return Promise.all(promises)
+        let results = new Array(requests.length)
+        for (let res of responses) {
+            results[res.id] = requests[res.id].decoder ? requests[res.id].decoder(res.result) : res.result
+        }
+
+        return results
     },
 
     updatePriceCumulativeLasts: function (_price0CumulativeLast, _price1CumulativeLast, toBlockReserves, toBlockTimestamp) {
-        const timestampLast = toBlockTimestamp % 2 ** 32
+        const timestampLast = BigInt(toBlockTimestamp) % 2n ** 32n
         if (timestampLast != toBlockReserves._blockTimestampLast) {
             const period = new BN(timestampLast - toBlockReserves._blockTimestampLast)
             const price0CumulativeLast = new BN(_price0CumulativeLast).add(this.calculateInstantPrice(toBlockReserves._reserve0, toBlockReserves._reserve1).mul(period))
@@ -179,8 +201,26 @@ module.exports = {
     },
 
     getFusePrice: async function (w3, pairAddress, toBlock, seedBlock, abiStyle) {
+        const reservesDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], res) }
+        const priceCumulativeLastDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint256", "name": "", "type": "uint256" }], res) }
         const getFusePriceUniV2 = async (w3, pairAddress, toBlock, seedBlock) => {
             const pair = new w3.eth.Contract(UNISWAPV2_PAIR_ABI, pairAddress)
+            pair.address = pairAddress
+
+
+            const requests = [
+                // reqs to get priceCumulativeLast of toBlock
+                { req: this.makeEthCallRequest(0, pair, 'price0CumulativeLast', [], toBlock), decoder: priceCumulativeLastDecoder },
+                { req: this.makeEthCallRequest(1, pair, 'price1CumulativeLast', [], toBlock), decoder: priceCumulativeLastDecoder },
+                { req: this.makeEthCallRequest(2, pair, 'getReserves', [], toBlock), decoder: reservesDecoder },
+                { req: this.makeEthGetBlockRequest(3, toBlock) },
+                // reqs to get priceCumulativeLast of seedBlock 
+                { req: this.makeEthCallRequest(4, pair, 'price0CumulativeLast', [], seedBlock), decoder: priceCumulativeLastDecoder },
+                { req: this.makeEthCallRequest(5, pair, 'price1CumulativeLast', [], seedBlock), decoder: priceCumulativeLastDecoder },
+                { req: this.makeEthCallRequest(6, pair, 'getReserves', [], seedBlock), decoder: reservesDecoder },
+                { req: this.makeEthGetBlockRequest(7, seedBlock) },
+            ]
+
             let [
                 _price0CumulativeLast,
                 _price1CumulativeLast,
@@ -190,23 +230,13 @@ module.exports = {
                 _seedPrice1CumulativeLast,
                 seedReserves,
                 seed,
-            ] = await this.makeBatchRequest(w3, [
-                // reqs to get priceCumulativeLast of toBlock
-                { req: pair.methods.price0CumulativeLast().call, block: toBlock },
-                { req: pair.methods.price1CumulativeLast().call, block: toBlock },
-                { req: pair.methods.getReserves().call, block: toBlock },
-                { req: w3.eth.getBlock, block: toBlock },
-                // reqs to get priceCumulativeLast of seedBlock 
-                { req: pair.methods.price0CumulativeLast().call, block: seedBlock },
-                { req: pair.methods.price1CumulativeLast().call, block: seedBlock },
-                { req: pair.methods.getReserves().call, block: seedBlock },
-                { req: w3.eth.getBlock, block: seedBlock },
-            ])
+            ] = await this.makeBatchRequest(w3, requests)
 
-            const { price0CumulativeLast, price1CumulativeLast } = this.updatePriceCumulativeLasts(_price0CumulativeLast, _price1CumulativeLast, toReserves, to.timestamp)
-            const { price0CumulativeLast: seedPrice0CumulativeLast, price1CumulativeLast: seedPrice1CumulativeLast } = this.updatePriceCumulativeLasts(_seedPrice0CumulativeLast, _seedPrice1CumulativeLast, seedReserves, seed.timestamp)
 
-            const period = new BN(to.timestamp).sub(new BN(seed.timestamp)).abs()
+            const { price0CumulativeLast, price1CumulativeLast } = this.updatePriceCumulativeLasts(_price0CumulativeLast['0'], _price1CumulativeLast['0'], toReserves, to.timestamp)
+            const { price0CumulativeLast: seedPrice0CumulativeLast, price1CumulativeLast: seedPrice1CumulativeLast } = this.updatePriceCumulativeLasts(_seedPrice0CumulativeLast['0'], _seedPrice1CumulativeLast['0'], seedReserves, seed.timestamp)
+
+            const period = new BN(parseInt(to.timestamp)).sub(new BN(parseInt(seed.timestamp))).abs()
 
             return {
                 price0: new BN(price0CumulativeLast).sub(new BN(seedPrice0CumulativeLast)).div(period),
@@ -214,30 +244,35 @@ module.exports = {
                 blockNumber: seedBlock
             }
         }
+        const metadataDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint256", "name": "dec0", "type": "uint256" }, { "internalType": "uint256", "name": "dec1", "type": "uint256" }, { "internalType": "uint256", "name": "r0", "type": "uint256" }, { "internalType": "uint256", "name": "r1", "type": "uint256" }, { "internalType": "bool", "name": "st", "type": "bool" }, { "internalType": "address", "name": "t0", "type": "address" }, { "internalType": "address", "name": "t1", "type": "address" }], res) }
+        const observationLengthDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint256", "name": "", "type": "uint256" }], res) }
+        const sampleDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], res) }
         const getFusePriceSolidly = async (w3, pairAddress, toBlock, seedBlock) => {
             const pair = new w3.eth.Contract(SOLIDLY_PAIR_ABI, pairAddress)
+            pair.address = pairAddress
+
             let [
                 metadata,
                 observationLength,
                 seedObservationLength,
             ] = await this.makeBatchRequest(w3, [
-                { req: pair.methods.metadata().call, block: toBlock },
+                { req: this.makeEthCallRequest(0, pair, 'metadata', [], toBlock), decoder: metadataDecoder },
                 // reqs to get observationLength of toBlock
-                { req: pair.methods.observationLength().call, block: toBlock },
+                { req: this.makeEthCallRequest(1, pair, 'observationLength', [], toBlock), decoder: observationLengthDecoder },
                 // reqs to get observationLength of seedBlock 
-                { req: pair.methods.observationLength().call, block: seedBlock },
+                { req: this.makeEthCallRequest(2, pair, 'observationLength', [], seedBlock), decoder: observationLengthDecoder },
             ])
 
-            const window = observationLength - seedObservationLength
+            const window = observationLength['0'] - seedObservationLength['0']
 
             let [price0, price1] = await this.makeBatchRequest(w3, [
-                { req: pair.methods.sample(metadata.t0, metadata.dec0, 1, window).call, block: toBlock },
-                { req: pair.methods.sample(metadata.t1, metadata.dec1, 1, window).call, block: toBlock },
+                { req: this.makeEthCallRequest(0, pair, 'sample', [metadata.t0, metadata.dec0, 1, window], toBlock), decoder: sampleDecoder },
+                { req: this.makeEthCallRequest(1, pair, 'sample', [metadata.t1, metadata.dec1, 1, window], toBlock), decoder: sampleDecoder },
             ])
 
             return {
-                price0: new BN(price0[0]).mul(Q112).div(new BN(metadata.dec0)),
-                price1: new BN(price1[0]).mul(Q112).div(new BN(metadata.dec1)),
+                price0: new BN(price0['0'][0]).mul(Q112).div(new BN(metadata.dec0)),
+                price1: new BN(price1['0'][0]).mul(Q112).div(new BN(metadata.dec1)),
                 blockNumber: seedBlock
             }
         }

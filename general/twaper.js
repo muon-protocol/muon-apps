@@ -25,22 +25,22 @@ module.exports = {
     formatRoutes: function (metaData) {
         const chainIds = new Set()
         const routes = {
-            validPriceGap: metaData.validPriceGap_,
+            validPriceGap: String(metaData.validPriceGap_),
             routes: metaData.routes_.map((route) => {
                 chainIds.add(route.config.chainId)
                 return {
-                    chainId: route.config.chainId,
+                    chainId: parseInt(route.config.chainId),
                     abiStyle: route.config.abiStyle,
                     path: route.path.map((address, i) => {
                         return {
                             address: address,
                             reversed: route.config.reversed[i],
-                            fusePriceTolerance: route.config.fusePriceTolerance[i],
-                            minutesToSeed: route.config.minutesToSeed[i],
-                            minutesToFuse: route.config.minutesToFuse[i]
+                            fusePriceTolerance: String(route.config.fusePriceTolerance[i]),
+                            minutesToSeed: parseInt(route.config.minutesToSeed[i]),
+                            minutesToFuse: parseInt(route.config.minutesToFuse[i])
                         }
                     }),
-                    weight: route.config.weight
+                    weight: parseInt(route.config.weight)
                 }
             })
         }
@@ -100,15 +100,18 @@ module.exports = {
     },
 
     getLpTotalSupply: async function (pairAddress, chainId, toBlock) {
+        const reservesDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint112", "name": "_reserve0", "type": "uint112" }, { "internalType": "uint112", "name": "_reserve1", "type": "uint112" }, { "internalType": "uint32", "name": "_blockTimestampLast", "type": "uint32" }], res) }
+        const totalSupplyDecoder = (res) => { return w3.eth.abi.decodeParameters([{ "internalType": "uint256", "name": "", "type": "uint256" }], res) }
         const w3 = this.networksWeb3[chainId]
         const pair = new w3.eth.Contract(this.UNISWAPV2_PAIR_ABI, pairAddress)
+        pair.address = pairAddress
         const [reserves, totalSupply] = await this.makeBatchRequest(w3, [
-            { req: pair.methods.getReserves().call, block: toBlock },
-            { req: pair.methods.totalSupply().call, block: toBlock },
+            { req: this.makeEthCallRequest(0, pair, 'getReserves', [], toBlock), decoder: reservesDecoder },
+            { req: this.makeEthCallRequest(1, pair, 'totalSupply', [], toBlock), decoder: totalSupplyDecoder },
         ])
 
         const K = new BN(reserves._reserve0).mul(new BN(reserves._reserve1))
-        return { K, totalSupply: new BN(totalSupply) }
+        return { K, totalSupply: new BN(totalSupply['0']) }
     },
 
     getLpMetaData: async function (config) {
