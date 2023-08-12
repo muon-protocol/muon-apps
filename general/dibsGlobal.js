@@ -265,7 +265,7 @@ module.exports = {
             case 'topLeaderBoardN': {
                 let { projectId, pair, n, day } = params
 
-                if (parseInt(day) <= 0) throw { message: 'NOT_POSITIVE_DAY' }
+                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
 
                 const { dibs, subgraphEndpoint } = await this.fetchProject(projectId)
                 const topLeaderBoardN = await this.getTopLeaderBoardN(dibs, pair, n, day, subgraphEndpoint)
@@ -288,7 +288,7 @@ module.exports = {
                     day
                 } = params
 
-                if (parseInt(day) <= 0) throw { message: 'NOT_POSITIVE_DAY' }
+                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
 
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
                 const { userVolume, totalVolume } = await this.getDailyVolume(user, pair, day, subgraphEndpoint)
