@@ -217,11 +217,14 @@ module.exports = {
             } 
         }`
 
-        const totalData = await this.postQuery(totalQuery, subgraphEndpoint)
-        const userData = await this.postQuery(userQuery, subgraphEndpoint)
+        const totalData = (await this.postQuery(totalQuery, subgraphEndpoint)).totalVolume
+        const userData = (await this.postQuery(userQuery, subgraphEndpoint)).userVolume
 
-        const totalVolume = totalData.totalVolume[0].amountAsUser
-        const userVolume = userData.userVolume[0].amountAsUser
+        if (userData.length == 0) throw { message: `NO_RECORD_FOR_USER` }
+        if (totalData.length == 0) throw { message: `NO_RECORD_FOR_PLATFORM` }
+
+        const totalVolume = totalData[0].amountAsUser
+        const userVolume = userData[0].amountAsUser
 
         return {
             userVolume,
