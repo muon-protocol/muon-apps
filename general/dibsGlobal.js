@@ -198,6 +198,8 @@ module.exports = {
         return platformBalance.amount
     },
 
+    getDailyVolume: async function (user, pair, day, subgraphEndpoint) { },
+
     onRequest: async function (request) {
         let {
             method,
@@ -249,6 +251,29 @@ module.exports = {
                 return { projectId, token, balance }
             }
 
+            case 'userVolume': {
+                let {
+                    projectId,
+                    user,
+                    pair,
+                    day
+                } = params
+
+                if (parseInt(day) <= 0) throw { message: 'NOT_POSITIVE_DAY' }
+
+                const { subgraphEndpoint } = await this.fetchProject(projectId)
+                const { userVolume, totalVolume } = await this.getDailyVolume(user, pair, day, subgraphEndpoint)
+
+                return {
+                    projectId,
+                    user,
+                    pair,
+                    day,
+                    userVolume,
+                    totalVolume,
+                }
+            }
+
             default:
                 throw { message: `Unknown method ${params}` }
         }
@@ -296,13 +321,39 @@ module.exports = {
                 let { projectId, token, balance } = result
 
                 if (!this.isToleranceOk(balance, request.data.result.balance, VALID_TOLERANCE).isOk)
-                    throw { message: `Tolerance Error` }
+                    throw { message: `Tolerance Error - platform balance` }
 
                 return [
                     { type: 'bytes32', value: projectId },
                     { type: 'string', value: "PLATFORM" },
                     { type: 'address', value: token },
                     { type: 'uint256', value: request.data.result.balance },
+                    { type: 'uint256', value: request.data.timestamp },
+                ]
+            }
+
+            case 'userVolume': {
+                let {
+                    projectId,
+                    user,
+                    pair,
+                    day,
+                    userVolume,
+                    totalVolume,
+                } = result
+
+                if (!this.isToleranceOk(userVolume, request.data.result.userVolume, VALID_TOLERANCE).isOk)
+                    throw { message: `Tolerance Error - user volume` }
+                if (!this.isToleranceOk(totalVolume, request.data.result.totalVolume, VALID_TOLERANCE).isOk)
+                    throw { message: `Tolerance Error - total volume` }
+
+                return [
+                    { type: 'bytes32', value: projectId },
+                    { type: 'address', value: user },
+                    { type: 'address', value: pair },
+                    { type: 'uint256', value: day },
+                    { type: 'uint256', value: request.data.result.userVolume },
+                    { type: 'uint256', value: request.data.result.totalVolume },
                     { type: 'uint256', value: request.data.timestamp },
                 ]
             }
