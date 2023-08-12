@@ -141,9 +141,9 @@ module.exports = {
         return true
     },
 
-    getTopLeaderBoardN: async function (dibs, n, day, subgraphEndPoint) {
+    getTopLeaderBoardN: async function (dibs, pair, n, day, subgraphEndPoint) {
         const query = `{
-            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {pair: "${pair.toLowerCase()}", day: ${day}, user_not: "${dibs}", amountAsReferrer_gt: "0"}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
@@ -231,13 +231,16 @@ module.exports = {
                 return { roundId, winners }
             }
 
-            case 'topLeaderBoardN':
-                let { projectId, n, day } = params
+            case 'topLeaderBoardN': {
+                let { projectId, pair, n, day } = params
+
+                if (parseInt(day) <= 0) throw { message: 'NOT_POSITIVE_DAY' }
 
                 const { dibs, subgraphEndpoint } = await this.fetchProject(projectId)
-                const topLeaderBoardN = await this.getTopLeaderBoardN(dibs, n, day, subgraphEndpoint)
+                const topLeaderBoardN = await this.getTopLeaderBoardN(dibs, pair, n, day, subgraphEndpoint)
 
-                return { projectId, n, day, topLeaderBoardN }
+                return { projectId, pair, n, day, topLeaderBoardN }
+            }
 
             case 'platformClaim': {
                 let { projectId, token } = params
@@ -277,9 +280,10 @@ module.exports = {
                 ]
 
             case 'topLeaderBoardN': {
-                let { projectId, n, day, topLeaderBoardN } = result
+                let { projectId, pair, n, day, topLeaderBoardN } = result
                 return [
                     { type: 'bytes32', value: projectId },
+                    { type: 'address', value: pair },
                     { type: 'uint256', value: n },
                     { type: 'uint256', value: day },
                     { type: 'address[]', value: topLeaderBoardN },
