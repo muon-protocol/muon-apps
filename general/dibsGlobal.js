@@ -198,7 +198,36 @@ module.exports = {
         return platformBalance.amount
     },
 
-    getDailyVolume: async function (user, pair, day, subgraphEndpoint) { },
+    getDailyVolume: async function (user, pair, day, subgraphEndpoint) {
+        const totalQuery = `{
+            totalVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "0x0000000000000000000000000000000000000000", pair: "${pair}"}) {
+              id
+              user
+              amountAsUser
+              day
+            } 
+        }`
+
+        const userQuery = `{
+            userVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "${user}", pair: "${pair}"}) {
+              id
+              user
+              amountAsUser
+              day
+            } 
+        }`
+
+        const totalData = await this.postQuery(totalQuery, subgraphEndpoint)
+        const userData = await this.postQuery(userQuery, subgraphEndpoint)
+
+        const totalVolume = totalData.totalVolume[0].amountAsUser
+        const userVolume = userData.userVolume[0].amountAsUser
+
+        return {
+            userVolume,
+            totalVolume,
+        }
+    },
 
     onRequest: async function (request) {
         let {
