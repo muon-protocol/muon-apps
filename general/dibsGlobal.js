@@ -200,7 +200,7 @@ module.exports = {
 
     getDailyVolume: async function (user, pair, day, subgraphEndpoint) {
         const totalQuery = `{
-            totalVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "0x0000000000000000000000000000000000000000", pair: "${pair}", amountAsReferrer_gt: "0"}) {
+            totalVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "0x0000000000000000000000000000000000000000", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
               id
               user
               amountAsUser
@@ -209,7 +209,7 @@ module.exports = {
         }`
 
         const userQuery = `{
-            userVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "${user}", pair: "${pair}", amountAsReferrer_gt: "0"}) {
+            userVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "${user.toLowerCase()}", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
               id
               user
               amountAsUser
