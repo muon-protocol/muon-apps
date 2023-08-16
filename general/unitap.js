@@ -17,12 +17,16 @@ const UnitapApp = {
         const { chain, wallet, multiplier, raffle } = result.data.entry
         const raffleId = raffle.raffleId
 
-        return {
-            chain,
-            wallet,
-            raffleId,
-            multiplier,
+        if (chain && wallet && multiplier && raffleId) {
+            return {
+                chain,
+                wallet,
+                raffleId,
+                multiplier,
+            }
         }
+
+        else throw { detail: 'CORRUPTED_ENTRY' }
     },
 
     onRequest: async function (request) {
