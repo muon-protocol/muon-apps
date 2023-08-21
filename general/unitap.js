@@ -15,11 +15,12 @@ const UnitapApp = {
         }
 
         const { chain, wallet, multiplier, raffle } = result.data.entry
-        const raffleId = raffle.raffleId
+        const { raffleId, contract } = raffle
 
         if (chain && wallet && multiplier && raffleId) {
             return {
                 chain,
+                contract,
                 wallet,
                 raffleId,
                 multiplier,
@@ -37,10 +38,17 @@ const UnitapApp = {
                     raffleEntryId
                 } = params
 
-                const { chain, wallet, raffleId, multiplier } = await this.getEntryDetail(raffleEntryId)
+                const {
+                    chain,
+                    contract,
+                    wallet,
+                    raffleId,
+                    multiplier,
+                } = await this.getEntryDetail(raffleEntryId)
 
                 return {
                     chain,
+                    contract,
                     wallet,
                     raffleId,
                     multiplier,
@@ -57,6 +65,7 @@ const UnitapApp = {
 
                 let {
                     chain,
+                    contract,
                     wallet,
                     raffleId,
                     multiplier,
@@ -64,6 +73,7 @@ const UnitapApp = {
 
                 return [
                     { type: 'uint256', value: chain },
+                    { type: 'address', value: contract },
                     { type: 'address', value: wallet },
                     { type: 'uint256', value: raffleId },
                     { type: 'uint256', value: multiplier },
