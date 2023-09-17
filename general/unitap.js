@@ -4,7 +4,7 @@ const UnitapApp = {
     APP_NAME: 'unitap',
 
     getEntryDetail: async function (raffleEntryId) {
-        const url = `https://stage.unitap.app/api/prizetap/raffle-enrollment/detail/${raffleEntryId}/`
+        const url = `https://api.unitap.app/api/prizetap/raffle-enrollment/detail/${raffleEntryId}/`
         let result
         try {
             result = await axios.get(url)
