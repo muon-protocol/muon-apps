@@ -23,13 +23,17 @@ module.exports = {
     },
 
     postQuery: async function (query, subgraphEndpoint) {
-        const {
-            data: { data }
-        } = await axios.post(subgraphEndpoint, {
+        const result = await axios.post(subgraphEndpoint, {
             query: query
         })
 
-        return data
+        const data = result.data
+
+        if (data.errors) {
+            throw data.errors
+        }
+
+        return data.data
     },
 
     getUserBalance: async function (user, token, subgraphEndPoint) {
@@ -138,9 +142,9 @@ module.exports = {
         return true
     },
 
-    getTopLeaderBoardN: async function (dibs, n, day, subgraphEndPoint) {
+    getTopLeaderBoardN: async function (dibs, pair, n, day, subgraphEndPoint) {
         const query = `{
-            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {day: ${day}, user_not: "${dibs}"}, orderBy: amountAsReferrer, orderDirection: desc) {
+            topLeaderBoardN: dailyGeneratedVolumes(first: ${n}, where: {pair: "${pair.toLowerCase()}", day: ${day}, user_not: "${dibs}", amountAsReferrer_gt: "0"}, orderBy: amountAsReferrer, orderDirection: desc) {
               id
               user
               amountAsReferrer
@@ -181,7 +185,7 @@ module.exports = {
 
     getPlatformBalance: async function (token, subgraphEndPoint) {
         const query = `{
-            platformBalance: accumulativeTokenBalances(where: {id: "${token}-PLATFORM"}) {
+            platformBalance: accumulativeTokenBalances(where: {id: "${token.toLowerCase()}-PLATFORM"}) {
               token
               amount
             }
@@ -193,6 +197,40 @@ module.exports = {
         if (platformBalance == undefined) throw { message: `Invalid token address` }
 
         return platformBalance.amount
+    },
+
+    getDailyVolume: async function (user, pair, day, subgraphEndpoint) {
+        const totalQuery = `{
+            totalVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "0x0000000000000000000000000000000000000000", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
+              id
+              user
+              amountAsUser
+              day
+            } 
+        }`
+
+        const userQuery = `{
+            userVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "${user.toLowerCase()}", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
+              id
+              user
+              amountAsUser
+              day
+            } 
+        }`
+
+        const totalData = (await this.postQuery(totalQuery, subgraphEndpoint)).totalVolume
+        const userData = (await this.postQuery(userQuery, subgraphEndpoint)).userVolume
+
+        if (userData.length == 0) throw { message: `NO_RECORD_FOR_USER` }
+        if (totalData.length == 0) throw { message: `NO_RECORD_FOR_PLATFORM` }
+
+        const totalVolume = totalData[0].amountAsUser
+        const userVolume = userData[0].amountAsUser
+
+        return {
+            userVolume,
+            totalVolume,
+        }
     },
 
     onRequest: async function (request) {
@@ -228,19 +266,45 @@ module.exports = {
                 return { roundId, winners }
             }
 
-            case 'topLeaderBoardN':
-                let { projectId, n, day } = params
+            case 'topLeaderBoardN': {
+                let { projectId, pair, n, day } = params
+
+                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
 
                 const { dibs, subgraphEndpoint } = await this.fetchProject(projectId)
-                const topLeaderBoardN = await this.getTopLeaderBoardN(dibs, n, day, subgraphEndpoint)
+                const topLeaderBoardN = await this.getTopLeaderBoardN(dibs, pair, n, day, subgraphEndpoint)
 
-                return { projectId, n, day, topLeaderBoardN }
+                return { projectId, pair, n, day, topLeaderBoardN }
+            }
 
             case 'platformClaim': {
                 let { projectId, token } = params
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
                 const balance = await this.getPlatformBalance(token, subgraphEndpoint)
                 return { projectId, token, balance }
+            }
+
+            case 'userVolume': {
+                let {
+                    projectId,
+                    user,
+                    pair,
+                    day
+                } = params
+
+                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
+
+                const { subgraphEndpoint } = await this.fetchProject(projectId)
+                const { userVolume, totalVolume } = await this.getDailyVolume(user, pair, day, subgraphEndpoint)
+
+                return {
+                    projectId,
+                    user,
+                    pair,
+                    day,
+                    userVolume,
+                    totalVolume,
+                }
             }
 
             default:
@@ -274,9 +338,10 @@ module.exports = {
                 ]
 
             case 'topLeaderBoardN': {
-                let { projectId, n, day, topLeaderBoardN } = result
+                let { projectId, pair, n, day, topLeaderBoardN } = result
                 return [
                     { type: 'bytes32', value: projectId },
+                    { type: 'address', value: pair },
                     { type: 'uint256', value: n },
                     { type: 'uint256', value: day },
                     { type: 'address[]', value: topLeaderBoardN },
@@ -289,13 +354,39 @@ module.exports = {
                 let { projectId, token, balance } = result
 
                 if (!this.isToleranceOk(balance, request.data.result.balance, VALID_TOLERANCE).isOk)
-                    throw { message: `Tolerance Error` }
+                    throw { message: `Tolerance Error - platform balance` }
 
                 return [
                     { type: 'bytes32', value: projectId },
                     { type: 'string', value: "PLATFORM" },
                     { type: 'address', value: token },
                     { type: 'uint256', value: request.data.result.balance },
+                    { type: 'uint256', value: request.data.timestamp },
+                ]
+            }
+
+            case 'userVolume': {
+                let {
+                    projectId,
+                    user,
+                    pair,
+                    day,
+                    userVolume,
+                    totalVolume,
+                } = result
+
+                if (!this.isToleranceOk(userVolume, request.data.result.userVolume, VALID_TOLERANCE).isOk)
+                    throw { message: `Tolerance Error - user volume` }
+                if (!this.isToleranceOk(totalVolume, request.data.result.totalVolume, VALID_TOLERANCE).isOk)
+                    throw { message: `Tolerance Error - total volume` }
+
+                return [
+                    { type: 'bytes32', value: projectId },
+                    { type: 'address', value: user },
+                    { type: 'address', value: pair },
+                    { type: 'uint256', value: day },
+                    { type: 'uint256', value: request.data.result.userVolume },
+                    { type: 'uint256', value: request.data.result.totalVolume },
                     { type: 'uint256', value: request.data.timestamp },
                 ]
             }
