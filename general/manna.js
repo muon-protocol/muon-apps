@@ -1,4 +1,4 @@
-const {Web3} = MuonAppUtils
+const {Web3, axios} = MuonAppUtils
 
 const web3 = new Web3();
 
@@ -32,17 +32,17 @@ const MannaApp = {
         return {test: "OK"};
 
       case 'gitcoinScore':
-        const data = await (await fetch('https://api.scorer.gitcoin.co/registry/submit-passport', {
-          method: 'POST',
+        const config = {
           headers: {
             'Content-Type': 'application/json',
             'X-API-KEY': api_key
-          },
-          body: JSON.stringify({
-            'address': address,
-            'scorer_id': scorer_id
-          })
-        })).json();
+          }
+        };
+        const params = {
+          'address': address,
+          'scorer_id': scorer_id
+        };
+        const data = await axios.post('https://api.scorer.gitcoin.co/registry/submit-passport', params, config);
         if (data.score == null)
           throw `rate limited!`;
         let score = Math.floor(data.score * 10 ** 6);
