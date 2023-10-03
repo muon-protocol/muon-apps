@@ -7,6 +7,9 @@ function verifySignedMessage(message, signature, expectedAddress) {
   return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
 }
 
+const scorer_id = process.env.SCORER_ID;
+const api_key = process.env.API_KEY;
+
 const MannaApp = {
   APP_NAME: 'manna',
   useTss: true,
@@ -29,7 +32,20 @@ const MannaApp = {
         return {test: "OK"};
 
       case 'gitcoinScore':
-        let score = 30;
+        const data = await (await fetch('https://api.scorer.gitcoin.co/registry/submit-passport', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-KEY': api_key
+          },
+          body: JSON.stringify({
+            'address': address,
+            'scorer_id': scorer_id
+          })
+        })).json();
+        if (data.score == null)
+          throw `rate limited!`;
+        let score = Math.floor(data.score * 10 ** 6);
         return {score, timestamp, address};
 
       default:
