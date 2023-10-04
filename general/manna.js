@@ -9,6 +9,7 @@ function verifySignedMessage(message, signature, expectedAddress) {
 
 const scorer_id = process.env.SCORER_ID;
 const api_key = process.env.API_KEY;
+const scorer_url = "https://api.scorer.gitcoin.co/registry/submit-passport"
 
 const MannaApp = {
   APP_NAME: 'manna',
@@ -17,19 +18,16 @@ const MannaApp = {
   onRequest: async function (request) {
     let {method, data: {params = {}}} = request;
     let {signature, timestamp, address} = params;
+
+    const timeNow = Date.now() / 1000;
+    if (timeNow > timestamp + (60 * 3) || timestamp > timeNow)
+      throw {message: "invalid timestamp"}
+
     switch (method) {
-      case 'checkins':
+      case 'checkIn':
         if (!verifySignedMessage(timestamp.toString(), signature, address))
           throw {message: "invalid signature"}
-
-        const timeNow = Date.now() / 1000;
-        if (timeNow > timestamp + (60 * 5) || timestamp > timeNow)
-          throw {message: "invalid timestamp"}
-
         return {timestamp, address};
-
-      case 'test':
-        return {test: "OK"};
 
       case 'gitcoinScore':
         const config = {
@@ -42,11 +40,14 @@ const MannaApp = {
           'address': address,
           'scorer_id': scorer_id
         };
-        const data = await axios.post('https://api.scorer.gitcoin.co/registry/submit-passport', params, config);
+        const data = (await axios.post(scorer_url, params, config)).data;
         if (data.score == null)
-          throw `rate limited!`;
+          throw {message: "We have relieved rate limit error from gitcoin. Please try again later"}
         let score = Math.floor(data.score * 10 ** 6);
         return {score, timestamp, address};
+
+      case 'test':
+        return {test: "OK"};
 
       default:
         throw {message: `invalid method ${method}`}
@@ -56,15 +57,10 @@ const MannaApp = {
   signParams: function (request, result) {
     let {timestamp, address, test, score} = result;
     switch (request.method) {
-      case 'checkins':
+      case 'checkIn':
         return [
           {type: 'uint256', value: timestamp},
           {type: 'address', value: address}
-        ];
-
-      case 'test':
-        return [
-          {type: 'string', value: test}
         ];
 
       case 'gitcoinScore':
@@ -72,6 +68,11 @@ const MannaApp = {
           {type: 'uint256', value: score},
           {type: 'uint256', value: timestamp},
           {type: 'address', value: address}
+        ];
+
+      case 'test':
+        return [
+          {type: 'string', value: test}
         ];
 
       default:
