@@ -178,8 +178,16 @@ module.exports = {
     makeBatchRequest: async function (w3, requests) {
         let batch = new w3.BatchRequest();
 
-        requests.forEach((request) => batch.add(request.req))
+        requests.forEach((request) => {
+            batch.add(request.req)
+                .catch(err => {
+                    console.log(`Batch Request: ${err.message}`);
+                });
+        });
         const responses = await batch.execute()
+            .catch(e => {
+                throw {message: `Batch request failed: ${e.message}`};
+            });
 
         let results = new Array(requests.length)
         for (let res of responses) {
