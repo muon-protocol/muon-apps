@@ -146,12 +146,13 @@ module.exports = {
         const rewardPercent = this.getRewardPercent(onlinePercent);
 
         if (node.active) {
-          reward = Math.floor((Number(node.earned) * rewardPercent) / 100);
+          reward = (Number(node.earned) * rewardPercent) / 100;
         } else {
-          reward = Math.floor(
-            (Number(node.pendingRewards) * rewardPercent) / 100,
-          );
+          reward = (Number(node.pendingRewards) * rewardPercent) / 100;
         }
+
+        const divisor = 10 ** 8;
+        reward = Math.floor(reward / divisor) * divisor;
 
         return {
           stakerAddress,
