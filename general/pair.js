@@ -181,7 +181,7 @@ module.exports = {
         requests.forEach((request) => {
             batch.add(request.req)
                 .catch(err => {
-                    console.log(`Batch Request: ${err.message}`);
+                    return {success: false, message: err.message};
                 });
         });
         const responses = await batch.execute()
