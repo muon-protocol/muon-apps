@@ -9,7 +9,7 @@ const PRIZE_TAP_VRF_CLIENT = {
 const PRIZE_TAP_RAFFLE = [{ "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "raffles", "outputs": [{ "internalType": "address", "name": "initiator", "type": "address" }, { "internalType": "uint256", "name": "maxParticipants", "type": "uint256" }, { "internalType": "uint256", "name": "maxMultiplier", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "uint256", "name": "endTime", "type": "uint256" }, { "internalType": "uint256", "name": "participantsCount", "type": "uint256" }, { "internalType": "uint32", "name": "winnersCount", "type": "uint32" }, { "internalType": "bool", "name": "exists", "type": "bool" }, { "internalType": "enum AbstractPrizetapRaffle.Status", "name": "status", "type": "uint8" }, { "internalType": "bytes32", "name": "requirementsHash", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
 
 const StageUnitapApp = {
-    APP_NAME: 'stage_unitap',
+    APP_NAME: 'unitap',
 
     getEntryDetail: async function (raffleEntryId) {
         const url = `https://stage.unitap.app/api/prizetap/raffle-enrollment/detail/${raffleEntryId}/`
