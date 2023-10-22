@@ -6,7 +6,7 @@ const PRIZE_TAP_VRF_CLIENT = {
     abi: [{ "inputs": [{ "internalType": "uint256", "name": "requestId", "type": "uint256" }], "name": "getRandomWords", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "lastRequestId", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "vrfRequests", "outputs": [{ "internalType": "uint256", "name": "expirationTime", "type": "uint256" }, { "internalType": "uint256", "name": "numWords", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 }
 
-const PRIZE_TAP_RAFFLE = [{ "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "raffles", "outputs": [{ "internalType": "address", "name": "initiator", "type": "address" }, { "internalType": "uint256", "name": "maxParticipants", "type": "uint256" }, { "internalType": "uint256", "name": "maxMultiplier", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "uint256", "name": "endTime", "type": "uint256" }, { "internalType": "uint256", "name": "lastParticipantIndex", "type": "uint256" }, { "internalType": "uint256", "name": "participantsCount", "type": "uint256" }, { "internalType": "uint32", "name": "winnersCount", "type": "uint32" }, { "internalType": "bool", "name": "exists", "type": "bool" }, { "internalType": "enum AbstractPrizetapRaffle.Status", "name": "status", "type": "uint8" }, { "internalType": "bytes32", "name": "requirementsHash", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
+const PRIZE_TAP_RAFFLE = [{ "inputs": [{ "internalType": "uint256", "name": "raffleId", "type": "uint256" }], "name": "getWinnersCount", "outputs": [{ "internalType": "uint256", "name": "winnersCount", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 const StageUnitapApp = {
     APP_NAME: 'stage_unitap',
@@ -41,7 +41,7 @@ const StageUnitapApp = {
     },
 
     getWinnersCount: async function (chainId, raffelId, prizetapRaffle) {
-        const { winnersCount } = await ethCall(prizetapRaffle, 'raffles', [raffelId], PRIZE_TAP_RAFFLE, chainId)
+        const winnersCount = await ethCall(prizetapRaffle, 'getWinnersCount', [raffelId], PRIZE_TAP_RAFFLE, chainId)
         if (winnersCount == 0) {
             throw { detail: 'INVALID_RAFFLE_ID' }
         }
