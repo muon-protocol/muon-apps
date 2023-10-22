@@ -1,20 +1,22 @@
-const { axios, Web3, ethGetBlock } = MuonAppUtils;
+const { axios, Web3, ethGetBlock, BN } = MuonAppUtils;
 
 const HttpProvider = Web3.providers.HttpProvider;
 const w3 = new Web3(
   new HttpProvider(
-    process.env.WEB3_PROVIDER_BSCTEST || "https://bsc-testnet.publicnode.com",
+    process.env.WEB3_PROVIDER_ETH || "https://rpc.ankr.com/eth",
   ),
 );
 
-const HELPER_ADDR = "0x3216E93892093294Cd6051Bc11F43e32440D551d";
+const bn = (num) => new BN(num)
+
+const HELPER_ADDR = "0x453ec5bA69826D0d971AD1D8C4bC0DCEEE7bd161";
 const HELPER_ABI = [{"inputs":[{"internalType":"address","name":"stakerAddress","type":"address"}],"name":"getData","outputs":[{"components":[{"internalType":"uint64","name":"nodeId","type":"uint64"},{"internalType":"address","name":"nodeAddress","type":"address"},{"internalType":"address","name":"stakerAddress","type":"address"},{"internalType":"string","name":"peerId","type":"string"},{"internalType":"bool","name":"active","type":"bool"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint64[]","name":"roles","type":"uint64[]"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"lastEditTime","type":"uint256"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"paidReward","type":"uint256"},{"internalType":"uint256","name":"paidRewardPerToken","type":"uint256"},{"internalType":"uint256","name":"pendingRewards","type":"uint256"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"earned","type":"uint256"},{"internalType":"uint256","name":"rewardPerToken","type":"uint256"}],"internalType":"struct Helper.NodeData","name":"nodeData","type":"tuple"}],"stateMutability":"view","type":"function"}];
 const helperContract = new w3.eth.Contract(HELPER_ABI, HELPER_ADDR);
 
 const MONITORING_SERVERS = ["https://alice-v2.muon.net/monitor"];
 
 module.exports = {
-  APP_NAME: "tss_reward_oracle",
+  APP_NAME: "pion_tss_reward_oracle",
 
   getOnlinePercent: async function (nodeId, endTime) {
     let logs = [];
@@ -122,7 +124,7 @@ module.exports = {
 
     switch (method) {
       case "reward":
-        let reward = 0;
+        let reward = bn(0);
 
         const data = helperContract.methods.getData(stakerAddress).encodeABI();
         const callObject = {
@@ -136,23 +138,24 @@ module.exports = {
           throw "It's not a staker address.";
         }
 
-        const block = await ethGetBlock("bsctest", blockNumber);
+        const block = await ethGetBlock("eth", blockNumber);
         // if the node is active the endTime is now otherwise endTime is the node exit time
-        endTime =
+        const endTime =
           node.endTime > 0 ? Number(node.endTime) : Number(block.timestamp);
 
-        const onlinePercent = await this.getOnlinePercent(node.nodeId, endTime);
+        // const onlinePercent = await this.getOnlinePercent(node.nodeId, endTime);
+        const onlinePercent = 100;
 
         const rewardPercent = this.getRewardPercent(onlinePercent);
 
         if (node.active) {
-          reward = (Number(node.earned) * rewardPercent) / 100;
+          reward = bn(node.earned).mul(bn(rewardPercent)).div(bn(100));
         } else {
-          reward = (Number(node.pendingRewards) * rewardPercent) / 100;
+          reward = bn(node.pendingRewards).mul(rewardPercent).div(bn(100));
         }
 
-        const divisor = 10 ** 8;
-        reward = Math.floor(reward / divisor) * divisor;
+        const divisor = bn(10 ** 8);
+        reward = reward.div(divisor).mul(divisor);
 
         return {
           stakerAddress,

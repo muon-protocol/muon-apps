@@ -1,4 +1,4 @@
-const { axios, ethCall, BN, recoverTypedMessage, toBaseUnit } = MuonAppUtils
+const { axios, ethCall, BN, recoverTypedSignature, toBaseUnit } = MuonAppUtils
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/spsina/dibs'
 const DibsRandomSeedGenerator = "0xfa200781a931c9F0ef3306092cd4e547772110Ae"
@@ -128,7 +128,7 @@ module.exports = {
             primaryType: 'Message',
             message: { user: forAddress, timestamp: time }
         }
-        let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
+        let signer = recoverTypedSignature({data: typedData, signature: sign, version: "V4"});
 
         return signer.toLowerCase() === forAddress.toLowerCase()
     },
