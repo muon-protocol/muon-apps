@@ -115,6 +115,7 @@ module.exports = {
   },
 
   onRequest: async function (request) {
+    throw 'Disabled';
     const {
       method,
       data: { params },
