@@ -56,7 +56,7 @@ const MannaApp = {
         };
         const data = (await axios.post(scorerUrl, params, config)).data;
         if (data.score == null)
-          throw {message: "We have relieved rate limit error from gitcoin. Please try again later"}
+          throw {message: "We have received rate limit error from gitcoin. Please try again later"}
         let score = Math.floor(data.score * 10 ** 6);
         await this.redis.set(redisPrefix + address, JSON.stringify({timestamp: timeNow, score: score}));
         return {score, timestamp, address};
