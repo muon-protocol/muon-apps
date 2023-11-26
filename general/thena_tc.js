@@ -10,7 +10,15 @@ const ThenaTCApp = {
 
         switch (method) {
             case 'info':
-                return;
+                await this.checkUser(owner, idCounter);
+                const finalBalance = await this.getFinalBalance(owner, idCounter);
+                const { startingBalance, depositFromOwner, depositNotFromOwner } = await this.getInfo(owner, idCounter);
+                return {
+                    finalBalance,
+                    startingBalance,
+                    depositFromOwner,
+                    depositNotFromOwner,
+                };
             default:
                 throw { message: `invalid method ${method}` }
         }
@@ -19,7 +27,18 @@ const ThenaTCApp = {
     signParams: function (request, result) {
         switch (request.method) {
             case 'info':
-                return;
+                const {
+                    finalBalance,
+                    startingBalance,
+                    depositFromOwner,
+                    depositNotFromOwner,
+                } = result;
+                return [
+                    { type: 'uint256', value: finalBalance },
+                    { type: 'uint256', value: startingBalance },
+                    { type: 'uint256', value: depositFromOwner },
+                    { type: 'uint256', value: depositNotFromOwner },
+                ]
             default:
                 throw { message: `Unknown method: ${request.method}` }
         }
