@@ -3,13 +3,13 @@ const { axios, Web3, ethGetBlock, BN } = MuonAppUtils;
 const HttpProvider = Web3.providers.HttpProvider;
 const w3 = new Web3(
   new HttpProvider(
-    process.env.WEB3_PROVIDER_ETH || "https://rpc.ankr.com/eth",
+    process.env.WEB3_PROVIDER_ETH || "https://rpc.ankr.com/bsc",
   ),
 );
 
 const bn = (num) => new BN(num)
 
-const HELPER_ADDR = "0x453ec5bA69826D0d971AD1D8C4bC0DCEEE7bd161";
+const HELPER_ADDR = "0x6C23fdF1Bc96Da84dd7b64F457046b0c72A9a422";
 const HELPER_ABI = [{"inputs":[{"internalType":"address","name":"stakerAddress","type":"address"}],"name":"getData","outputs":[{"components":[{"internalType":"uint64","name":"nodeId","type":"uint64"},{"internalType":"address","name":"nodeAddress","type":"address"},{"internalType":"address","name":"stakerAddress","type":"address"},{"internalType":"string","name":"peerId","type":"string"},{"internalType":"bool","name":"active","type":"bool"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint64[]","name":"roles","type":"uint64[]"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"lastEditTime","type":"uint256"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"paidReward","type":"uint256"},{"internalType":"uint256","name":"paidRewardPerToken","type":"uint256"},{"internalType":"uint256","name":"pendingRewards","type":"uint256"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"earned","type":"uint256"},{"internalType":"uint256","name":"rewardPerToken","type":"uint256"}],"internalType":"struct Helper.NodeData","name":"nodeData","type":"tuple"}],"stateMutability":"view","type":"function"}];
 const helperContract = new w3.eth.Contract(HELPER_ABI, HELPER_ADDR);
 
@@ -115,7 +115,6 @@ module.exports = {
   },
 
   onRequest: async function (request) {
-    throw 'Disabled';
     const {
       method,
       data: { params },
