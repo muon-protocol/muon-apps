@@ -3,7 +3,7 @@ const { axios, Web3, ethGetBlock, BN } = MuonAppUtils;
 const HttpProvider = Web3.providers.HttpProvider;
 const w3 = new Web3(
   new HttpProvider(
-    process.env.WEB3_PROVIDER_ETH || "https://rpc.ankr.com/bsc",
+    process.env.WEB3_PROVIDER_BSC || "https://rpc.ankr.com/bsc",
   ),
 );
 
