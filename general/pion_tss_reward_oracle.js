@@ -138,7 +138,7 @@ module.exports = {
           throw "It's not a staker address.";
         }
 
-        const block = await ethGetBlock("eth", blockNumber);
+        const block = await ethGetBlock("bsc", blockNumber);
         // if the node is active the endTime is now otherwise endTime is the node exit time
         const endTime =
           node.endTime > 0 ? Number(node.endTime) : Number(block.timestamp);
