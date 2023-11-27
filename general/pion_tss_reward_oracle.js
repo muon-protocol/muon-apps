@@ -15,6 +15,18 @@ const helperContract = new w3.eth.Contract(HELPER_ABI, HELPER_ADDR);
 
 const MONITORING_SERVERS = ["https://alice-v2.muon.net/monitor"];
 
+const BLACKLIST = [
+  "0xD3796c121479f1a01A023B1B6E24a33f1476E78d",
+  "0xEf6C57b608Fa240bFBb1C16106dAc1f86C4CDc2f",
+  "0x54bDD54bd172ACfd80119338fa2F995f7A0858DE",
+  "0x8B0efE89C2cE4BDa805f91327640BC453e0445dc",
+  "0x5E3613AEb7417Ae80e850D19EC4540C44AeADFe5",
+  "0xE4b32Bcef3154F9d3D882ee8e1136b4EF28c47bd",
+  "0x1A384Cce14bc64296251448F2e185b5A107De549",
+  "0x54CF29103D683104a37E8C5486010aaEC8B30014"
+]
+
+
 module.exports = {
   APP_NAME: "pion_tss_reward_oracle",
 
@@ -121,6 +133,10 @@ module.exports = {
     } = request;
     let { stakerAddress, blockNumber } = params;
     blockNumber = Number(blockNumber);
+
+    if(BLACKLIST.map(x => x.toLowerCase()).includes(stakerAddress.toLowerCase())){
+      throw "You are not able to claim rewards. Please, contact support.";
+    }
 
     switch (method) {
       case "reward":
