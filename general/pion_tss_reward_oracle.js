@@ -13,7 +13,7 @@ const HELPER_ADDR = "0x6C23fdF1Bc96Da84dd7b64F457046b0c72A9a422";
 const HELPER_ABI = [{"inputs":[{"internalType":"address","name":"stakerAddress","type":"address"}],"name":"getData","outputs":[{"components":[{"internalType":"uint64","name":"nodeId","type":"uint64"},{"internalType":"address","name":"nodeAddress","type":"address"},{"internalType":"address","name":"stakerAddress","type":"address"},{"internalType":"string","name":"peerId","type":"string"},{"internalType":"bool","name":"active","type":"bool"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint64[]","name":"roles","type":"uint64[]"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"lastEditTime","type":"uint256"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"paidReward","type":"uint256"},{"internalType":"uint256","name":"paidRewardPerToken","type":"uint256"},{"internalType":"uint256","name":"pendingRewards","type":"uint256"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"earned","type":"uint256"},{"internalType":"uint256","name":"rewardPerToken","type":"uint256"}],"internalType":"struct Helper.NodeData","name":"nodeData","type":"tuple"}],"stateMutability":"view","type":"function"}];
 const helperContract = new w3.eth.Contract(HELPER_ABI, HELPER_ADDR);
 
-const MONITORING_SERVERS = ["https://alice-v2.muon.net/monitor"];
+const MONITORING_SERVERS = ["https://monitor-pion.muon.net/monitor"];
 
 const BLACKLIST = [
   "0xD3796c121479f1a01A023B1B6E24a33f1476E78d",
@@ -167,7 +167,7 @@ module.exports = {
         if (node.active) {
           reward = bn(node.earned).mul(bn(rewardPercent)).div(bn(100));
         } else {
-          reward = bn(node.pendingRewards).mul(rewardPercent).div(bn(100));
+          reward = bn(node.pendingRewards).mul(bn(rewardPercent)).div(bn(100));
         }
 
         const divisor = bn(10 ** 8);
