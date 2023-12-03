@@ -8,7 +8,7 @@ class AccountManager {
     static defaultChainId = 56
 
     static async getAccountManager(idCounter) {
-        const { tradingCompetition } = await ethCall(perpManagerAddress, 'idToTradingCompetition', [idCounter], AccountManager.PERP_MANAGER_ABI, AccountManager.defaultChainId);
+        const { tradingCompetition } = await ethCall(AccountManager.perpManagerAddress, 'idToTradingCompetition', [idCounter], AccountManager.PERP_MANAGER_ABI, AccountManager.defaultChainId);
         return tradingCompetition;
     }
 
