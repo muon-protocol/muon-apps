@@ -10,9 +10,16 @@ const ThenaTCApp = {
 
         switch (method) {
             case 'info':
-                await this.checkUser(owner, idCounter);
-                const finalBalance = await this.getFinalBalance(owner, idCounter);
+                // gets AccountManager address and create instance of it
+                const accountManager = new AccountManager(await this.getAccountManager(idCounter));
+                // checks if user is valid
+                const isValid = await accountManager.isAccountValid(owner);
+                if (!isValid) throw { message: "NOT_VALID_USER" }
+                // gets final balance of user
+                const finalBalance = await accountManager.getBalanceOfUser(owner);
+                // gets user info from subgraph
                 const { startingBalance, depositFromOwner, depositNotFromOwner } = await this.getInfo(owner, idCounter);
+                // returns outputs
                 return {
                     finalBalance,
                     startingBalance,
