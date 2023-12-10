@@ -1,20 +1,26 @@
-const { OpenAI } = require("openai");
+const { axios } = MuonAppUtils
 
-const openai = new OpenAI({ apiKey: process.env.GPT_API_KEY });
+const gptUrl = 'https://api.openai.com/v1/chat/completions'
+const OPENAI_API_KEY = process.env.GPT_API_KEY
 
 const ChatGPTApp = {
     APP_NAME: 'chatGPT',
 
     askGPT: async function (question) {
         try {
-            const completion = await openai.chat.completions.create({
-
+            const { data: completion } = await axios.post(gptUrl, {
                 messages: [
                     { role: "system", content: "Answer with true or false." },
                     { role: "user", content: question }
                 ],
                 model: "gpt-3.5-turbo",
-            });
+            },
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+                    },
+                })
 
             let answer = completion.choices[0].message.content;
             if (!(["True.", "False.", "False", "True"].includes(answer))) {
