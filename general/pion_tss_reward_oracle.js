@@ -159,8 +159,8 @@ module.exports = {
         const endTime =
           node.endTime > 0 ? Number(node.endTime) : Number(block.timestamp);
 
-        // const onlinePercent = await this.getOnlinePercent(node.nodeId, endTime);
-        const onlinePercent = 100;
+        const onlinePercent = await this.getOnlinePercent(node.nodeId, endTime);
+        //const onlinePercent = 100;
 
         const rewardPercent = this.getRewardPercent(onlinePercent);
 
