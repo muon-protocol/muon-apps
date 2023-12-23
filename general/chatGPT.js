@@ -10,10 +10,10 @@ const ChatGPTApp = {
         try {
             const { data: completion } = await axios.post(gptUrl, {
                 messages: [
-                    { role: "system", content: "Answer with true or false." },
+                    { role: "system", content: "Answer with true or false and don't say anything except these two respnses." },
                     { role: "user", content: question }
                 ],
-                model: "gpt-3.5-turbo",
+                model: "gpt-4-1106-preview",
             },
                 {
                     headers: {
@@ -24,16 +24,15 @@ const ChatGPTApp = {
 
             let answer = completion.choices[0].message.content;
             if (!(["True.", "False.", "False", "True"].includes(answer))) {
-                throw { message: "GPT_NOT_ANSWERED_WITH_TRUE_OR_FALSE" }
+                throw { message: "GPT_NOT_ANSWERED_WITH_TRUE_OR_FALSE", answer }
             }
 
-            answer = answer == "True." ? true : false;
+            answer = ["True.", "True"].includes(answer) ? true : false;
 
             return answer
         }
         catch (e) {
-            console.log(e)
-            throw { message: "FAILED_TO_REACH_GPT" }
+            throw { message: e.message ? e.message : "FAILED_TO_REACH_GPT" }
         }
     },
 
@@ -46,6 +45,7 @@ const ChatGPTApp = {
                 } = params;
 
                 const answer = await this.askGPT(question);
+                console.log('answer', answer)
 
                 return {
                     answer,
