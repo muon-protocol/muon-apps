@@ -17,8 +17,14 @@ class AccountManager {
         this.idCounter = idCounter;
     }
 
+    async getQuotesCount(owner) {
+        const account = await ethCall(this.address, 'getAccountOf', [owner], AccountManager.ACCOUNT_MANAGER_ABI, AccountManager.defaultChainId);
+        const quotesCount = await ethCall(this.address, 'getQuotesLength', [account], AccountManager.ACCOUNT_MANAGER_ABI, AccountManager.defaultChainId);
+        return quotesCount;
+    }
+
     async _isAccountValid(owner, start, size) {
-        const isValid = await ethCall(this.address, 'isAccountValid', [owner, start, size], AccountManager.ACCOUNT_MANAGER_ABI, AccountManager.defaultChainId)
+        const isValid = await ethCall(this.address, 'isAccountValid', [owner, start, size], AccountManager.ACCOUNT_MANAGER_ABI, AccountManager.defaultChainId);
         return isValid
     }
 
