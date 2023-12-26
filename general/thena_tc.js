@@ -1,4 +1,4 @@
-const { ethCall } = MuonAppUtils
+const { ethCall, axios } = MuonAppUtils
 
 class AccountManager {
     static PERP_MANAGER_ABI = [{ "inputs": [{ "internalType": "uint256", "name": "_id", "type": "uint256" }], "name": "idToTradingCompetition", "outputs": [{ "components": [{ "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "uint256", "name": "entryFee", "type": "uint256" }, { "internalType": "uint256", "name": "MAX_PARTICIPANTS", "type": "uint256" }, { "internalType": "address", "name": "owner", "type": "address" }, { "internalType": "address", "name": "tradingCompetition", "type": "address" }, { "internalType": "string", "name": "name", "type": "string" }, { "internalType": "string", "name": "description", "type": "string" }, { "components": [{ "internalType": "uint256", "name": "startTimestamp", "type": "uint256" }, { "internalType": "uint256", "name": "endTimestamp", "type": "uint256" }, { "internalType": "uint256", "name": "registrationStart", "type": "uint256" }, { "internalType": "uint256", "name": "registrationEnd", "type": "uint256" }], "internalType": "struct ITradingCompetitionManager.TimestampInfo", "name": "timestamp", "type": "tuple" }, { "components": [{ "internalType": "bool", "name": "win_type", "type": "bool" }, { "internalType": "uint256[]", "name": "weights", "type": "uint256[]" }, { "internalType": "uint256", "name": "totalPrize", "type": "uint256" }, { "internalType": "uint256", "name": "owner_fee", "type": "uint256" }, { "internalType": "address", "name": "token", "type": "address" }, { "internalType": "uint256", "name": "host_contribution", "type": "uint256" }], "internalType": "struct ITradingCompetitionManager.Prize", "name": "prize", "type": "tuple" }, { "components": [{ "internalType": "uint256", "name": "starting_balance", "type": "uint256" }, { "internalType": "uint256[]", "name": "pairIds", "type": "uint256[]" }], "internalType": "struct ITradingCompetitionManager.CompetitionRules", "name": "competitionRules", "type": "tuple" }], "internalType": "struct ITradingCompetitionManager.TC", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" }]
@@ -47,6 +47,46 @@ class AccountManager {
 
 const ThenaTCApp = {
     APP_NAME: 'thena_tc',
+
+    postQuery: async function (query, subgraphEndpoint) {
+        const result = await axios.post(subgraphEndpoint, {
+            query: query
+        })
+
+        const data = result.data
+
+        if (data.errors) {
+            throw data.errors
+        }
+
+        return data.data
+    },
+
+
+
+    getInfo: async function (owner, idCounter) {
+        const subgraphEndpoint = 'https://api.thegraph.com/subgraphs/name/spsina/thenatc'
+        const query = `{
+        participants(where: {owner: "${owner}", competition_: {idCounter: ${idCounter}}})
+            {
+                depositFromOwner
+                depositNotFromOwner
+                competition {
+                    startingBalance
+                }
+            }
+        }`;
+
+        const { participants } = await this.postQuery(query, subgraphEndpoint);
+        if (participants.length == 0) throw { message: "NO_RECORD_FOR_USER" }
+        if (participants.length > 1) throw { message: "MULTIPLE_RECORD_FOR_USER" }
+
+        return {
+            startingBalance: participants[0].competition.startingBalance,
+            depositFromOwner: participants[0].depositFromOwner,
+            depositNotFromOwner: participants[0].depositNotFromOwner,
+        }
+    },
 
     onRequest: async function (request) {
         let { method, data: { params } } = request;
