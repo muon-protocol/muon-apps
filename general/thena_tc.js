@@ -88,29 +88,35 @@ const ThenaTCApp = {
         }
     },
 
+    _info: async function (owner, idCounter) {
+        // gets AccountManager address and create instance of it
+        const accountManager = new AccountManager(await AccountManager.getAccountManager(idCounter), idCounter);
+        // checks if user is valid
+        const isValid = await accountManager.isAccountValid(owner);
+        if (!isValid) throw { message: "NOT_VALID_USER" }
+        // gets final balance of user
+        const finalBalance = await accountManager.getBalanceOfUser(owner);
+        // gets user info from subgraph
+        const { startingBalance, depositFromOwner, depositNotFromOwner } = await this.getInfo(owner, idCounter);
+        // returns outputs
+        return {
+            finalBalance,
+            startingBalance,
+            depositFromOwner,
+            depositNotFromOwner,
+        };
+    },
+
     onRequest: async function (request) {
         let { method, data: { params } } = request;
 
         let { owner, idCounter } = params
 
         switch (method) {
-            case 'info':
-                // gets AccountManager address and create instance of it
-                const accountManager = new AccountManager(await AccountManager.getAccountManager(idCounter), idCounter);
-                // checks if user is valid
-                const isValid = await accountManager.isAccountValid(owner);
-                if (!isValid) throw { message: "NOT_VALID_USER" }
-                // gets final balance of user
-                const finalBalance = await accountManager.getBalanceOfUser(owner);
-                // gets user info from subgraph
-                const { startingBalance, depositFromOwner, depositNotFromOwner } = await this.getInfo(owner, idCounter);
-                // returns outputs
-                return {
-                    finalBalance,
-                    startingBalance,
-                    depositFromOwner,
-                    depositNotFromOwner,
-                };
+            case 'info': {
+                // get info
+                return await this._info(owner, idCounter);
+            }
             default:
                 throw { message: `invalid method ${method}` }
         }
