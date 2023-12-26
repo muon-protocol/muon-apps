@@ -38,6 +38,11 @@ class AccountManager {
         }
         return isValid;
     }
+
+    async getBalanceOfUser(owner) {
+        const balance = ethCall(this.address, 'getBalanceOfUser', [owner], AccountManager.ACCOUNT_MANAGER_ABI, AccountManager.defaultChainId);
+        return balance
+    }
 }
 
 const ThenaTCApp = {
