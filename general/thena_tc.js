@@ -1,10 +1,10 @@
-const { ethCall, axios } = MuonAppUtils
+const { ethCall, axios, BN } = MuonAppUtils
 
 class AccountManager {
     static PERP_MANAGER_ABI = [{ "inputs": [{ "internalType": "uint256", "name": "_id", "type": "uint256" }], "name": "idToTradingCompetition", "outputs": [{ "components": [{ "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "uint256", "name": "entryFee", "type": "uint256" }, { "internalType": "uint256", "name": "MAX_PARTICIPANTS", "type": "uint256" }, { "internalType": "address", "name": "owner", "type": "address" }, { "internalType": "address", "name": "tradingCompetition", "type": "address" }, { "internalType": "string", "name": "name", "type": "string" }, { "internalType": "string", "name": "description", "type": "string" }, { "components": [{ "internalType": "uint256", "name": "startTimestamp", "type": "uint256" }, { "internalType": "uint256", "name": "endTimestamp", "type": "uint256" }, { "internalType": "uint256", "name": "registrationStart", "type": "uint256" }, { "internalType": "uint256", "name": "registrationEnd", "type": "uint256" }], "internalType": "struct ITradingCompetitionManager.TimestampInfo", "name": "timestamp", "type": "tuple" }, { "components": [{ "internalType": "bool", "name": "win_type", "type": "bool" }, { "internalType": "uint256[]", "name": "weights", "type": "uint256[]" }, { "internalType": "uint256", "name": "totalPrize", "type": "uint256" }, { "internalType": "uint256", "name": "owner_fee", "type": "uint256" }, { "internalType": "address", "name": "token", "type": "address" }, { "internalType": "uint256", "name": "host_contribution", "type": "uint256" }], "internalType": "struct ITradingCompetitionManager.Prize", "name": "prize", "type": "tuple" }, { "components": [{ "internalType": "uint256", "name": "starting_balance", "type": "uint256" }, { "internalType": "uint256[]", "name": "pairIds", "type": "uint256[]" }], "internalType": "struct ITradingCompetitionManager.CompetitionRules", "name": "competitionRules", "type": "tuple" }], "internalType": "struct ITradingCompetitionManager.TC", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" }]
     static ACCOUNT_MANAGER_ABI = [{ "inputs": [{ "internalType": "address", "name": "account", "type": "address" }], "name": "getQuotesLength", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }, { "internalType": "uint256", "name": "start", "type": "uint256" }, { "internalType": "uint256", "name": "size", "type": "uint256" }], "name": "isAccountValid", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getAccountOf", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getBalanceOfUser", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
-    static perpManagerAddress = "0x22C859C23A4aEe8eb463Ca5d14C45EcCB88d4933"
+    static perpManagerAddress = "0x5b86dDF88d9F75ba794a410532ae4ae9a0985500"
     static defaultChainId = 56
 
     static async getAccountManager(idCounter) {
@@ -107,6 +107,14 @@ const ThenaTCApp = {
         };
     },
 
+    calculatePnl: function (finalBalance, startingBalance, depositFromOwner, depositNotFromOwner) {
+        const balance0 = new BN(depositFromOwner).add(new BN(startingBalance))
+        const balance1 = new BN(finalBalance).sub(new BN(depositNotFromOwner))
+        const balanceChange = balance1.sub(balance0)
+        const pnl = balanceChange.mul(new BN(10000)).div(balance0)
+        return pnl
+    },
+
     onRequest: async function (request) {
         let { method, data: { params } } = request;
 
@@ -117,6 +125,21 @@ const ThenaTCApp = {
                 // get info
                 return await this._info(owner, idCounter);
             }
+            case 'pnl': {
+                // gets required info
+                const {
+                    finalBalance,
+                    startingBalance,
+                    depositFromOwner,
+                    depositNotFromOwner,
+                } = await this._info(owner, idCounter);
+                // calculates pnl
+                const pnl = this.calculatePnl(finalBalance, startingBalance, depositFromOwner, depositNotFromOwner)
+                // returns result
+                return {
+                    pnl: pnl.toString(),
+                }
+            }
             default:
                 throw { message: `invalid method ${method}` }
         }
@@ -124,19 +147,28 @@ const ThenaTCApp = {
 
     signParams: function (request, result) {
         switch (request.method) {
-            case 'info':
+            case 'info': {
                 const {
                     finalBalance,
                     startingBalance,
                     depositFromOwner,
                     depositNotFromOwner,
                 } = result;
+
                 return [
                     { type: 'uint256', value: finalBalance },
                     { type: 'uint256', value: startingBalance },
                     { type: 'uint256', value: depositFromOwner },
                     { type: 'uint256', value: depositNotFromOwner },
                 ]
+            }
+            case 'pnl': {
+                const { pnl } = result;
+
+                return [
+                    { type: 'int256', value: pnl },
+                ]
+            }
             default:
                 throw { message: `Unknown method: ${request.method}` }
         }
