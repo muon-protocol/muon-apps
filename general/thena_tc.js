@@ -7,14 +7,14 @@ class AccountManager {
     static perpManagerAddress = "0x5b86dDF88d9F75ba794a410532ae4ae9a0985500"
     static defaultChainId = 56
 
-    static async getAccountManager(idCounter) {
-        const { tradingCompetition } = await ethCall(AccountManager.perpManagerAddress, 'idToTradingCompetition', [idCounter], AccountManager.PERP_MANAGER_ABI, AccountManager.defaultChainId);
+    static async getAccountManager(tcId) {
+        const { tradingCompetition } = await ethCall(AccountManager.perpManagerAddress, 'idToTradingCompetition', [tcId], AccountManager.PERP_MANAGER_ABI, AccountManager.defaultChainId);
         return tradingCompetition;
     }
 
-    constructor(address, idCounter) {
+    constructor(address, tcId) {
         this.address = address;
-        this.idCounter = idCounter;
+        this.tcId = tcId;
     }
 
     async getQuotesCount(owner) {
@@ -64,10 +64,10 @@ const ThenaTCApp = {
 
 
 
-    getInfo: async function (owner, idCounter) {
+    getInfo: async function (owner, tcId) {
         const subgraphEndpoint = 'https://api.thegraph.com/subgraphs/name/spsina/thenatc'
         const query = `{
-        participants(where: {owner: "${owner}", competition_: {idCounter: ${idCounter}}})
+        participants(where: {owner: "${owner}", competition_: {idCounter: ${tcId}}})
             {
                 depositFromOwner
                 depositNotFromOwner
@@ -88,16 +88,16 @@ const ThenaTCApp = {
         }
     },
 
-    _info: async function (owner, idCounter) {
+    _info: async function (owner, tcId) {
         // gets AccountManager address and create instance of it
-        const accountManager = new AccountManager(await AccountManager.getAccountManager(idCounter), idCounter);
+        const accountManager = new AccountManager(await AccountManager.getAccountManager(tcId), tcId);
         // checks if user is valid
         const isValid = await accountManager.isAccountValid(owner);
         if (!isValid) throw { message: "NOT_VALID_USER" }
         // gets final balance of user
         const finalBalance = await accountManager.getBalanceOfUser(owner);
         // gets user info from subgraph
-        const { startingBalance, depositFromOwner, depositNotFromOwner } = await this.getInfo(owner, idCounter);
+        const { startingBalance, depositFromOwner, depositNotFromOwner } = await this.getInfo(owner, tcId);
         // returns outputs
         return {
             finalBalance,
@@ -118,17 +118,17 @@ const ThenaTCApp = {
     onRequest: async function (request) {
         let { method, data: { params } } = request;
 
-        let { owner, idCounter } = params
+        let { owner, tcId } = params
 
         let result = {
             owner,
-            idCounter,
+            tcId,
         }
 
         switch (method) {
             case 'info': {
                 // get info
-                const info = await this._info(owner, idCounter);
+                const info = await this._info(owner, tcId);
                 return Object.assign(result, info);
             }
             case 'pnl': {
@@ -138,7 +138,7 @@ const ThenaTCApp = {
                     startingBalance,
                     depositFromOwner,
                     depositNotFromOwner,
-                } = await this._info(owner, idCounter);
+                } = await this._info(owner, tcId);
                 // calculates pnl
                 const pnl = this.calculatePnl(finalBalance, startingBalance, depositFromOwner, depositNotFromOwner)
                 // returns result
@@ -152,12 +152,12 @@ const ThenaTCApp = {
     signParams: function (request, result) {
         const {
             owner,
-            idCounter,
+            tcId,
         } = result;
 
         const baseResult = [
             { type: 'address', value: owner },
-            { type: 'uint256', value: idCounter },
+            { type: 'uint256', value: tcId },
         ]
 
         switch (request.method) {
