@@ -120,10 +120,16 @@ const ThenaTCApp = {
 
         let { owner, idCounter } = params
 
+        let result = {
+            owner,
+            idCounter,
+        }
+
         switch (method) {
             case 'info': {
                 // get info
-                return await this._info(owner, idCounter);
+                const info = await this._info(owner, idCounter);
+                return Object.assign(result, info);
             }
             case 'pnl': {
                 // gets required info
@@ -136,9 +142,7 @@ const ThenaTCApp = {
                 // calculates pnl
                 const pnl = this.calculatePnl(finalBalance, startingBalance, depositFromOwner, depositNotFromOwner)
                 // returns result
-                return {
-                    pnl: pnl.toString(),
-                }
+                return Object.assign(result, { pnl })
             }
             default:
                 throw { message: `invalid method ${method}` }
@@ -146,6 +150,16 @@ const ThenaTCApp = {
     },
 
     signParams: function (request, result) {
+        const {
+            owner,
+            idCounter,
+        } = result;
+
+        const baseResult = [
+            { type: 'address', value: owner },
+            { type: 'uint256', value: idCounter },
+        ]
+
         switch (request.method) {
             case 'info': {
                 const {
@@ -156,6 +170,7 @@ const ThenaTCApp = {
                 } = result;
 
                 return [
+                    ...baseResult,
                     { type: 'uint256', value: finalBalance },
                     { type: 'uint256', value: startingBalance },
                     { type: 'uint256', value: depositFromOwner },
@@ -166,6 +181,7 @@ const ThenaTCApp = {
                 const { pnl } = result;
 
                 return [
+                    ...baseResult,
                     { type: 'int256', value: pnl },
                 ]
             }
