@@ -44,10 +44,10 @@ const VRFApp = {
                 return [
                     { type: 'uint256', value: chainId },
                     { type: 'uint256', value: requestId },
-                    { type: 'uint256', value: blockNum },
-                    { type: 'uint32', value: callbackGasLimit },
-                    { type: 'uint32', value: numWords },
-                    { type: 'address', value: consumer },
+                    // { type: 'uint256', value: blockNum },
+                    // { type: 'uint32', value: callbackGasLimit },
+                    // { type: 'uint32', value: numWords },
+                    // { type: 'address', value: consumer },
                 ]
             }
 
