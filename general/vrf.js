@@ -47,7 +47,7 @@ const VRFApp = {
                     { type: 'uint256', value: blockNum },
                     { type: 'uint32', value: callbackGasLimit },
                     { type: 'uint32', value: numWords },
-                    { type: 'addresss', value: consumer },
+                    { type: 'address', value: consumer },
                 ]
             }
 
