@@ -1,8 +1,8 @@
 const {soliditySha3} = MuonAppUtils
 const TssApp3 = {
   APP_NAME: 'tss3',
-  useTss: true,
-
+  useFrost: true,
+  
   onRequest: async function (request) {
     let {method, data: {params={}}} = request;
     switch (method) {
