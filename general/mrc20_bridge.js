@@ -1,4 +1,4 @@
-const { ethCall, soliditySha3 } = MuonAppUtils
+const { ethCall } = MuonAppUtils
 
 const ABI_getTx = [
   {
@@ -19,7 +19,6 @@ const ABI_getTx = [
 
 module.exports = {
   APP_NAME: 'mrc20_bridge',
-  APP_ID: 5,
 
   onRequest: async function (request) {
     let {
@@ -41,31 +40,32 @@ module.exports = {
           depositNetwork
         )
         return result
-
+      case 'test':
+          return 'done';
       default:
-        throw { message: `Unknown method ${params}` }
+        throw { message: `Unknown method ${method}` }
     }
   },
 
-  hashRequestResult: function (request, result) {
+  signParams: function (request, result) {
     let { method } = request
 
     switch (method) {
       case 'claim':
         let { txId, tokenId, amount, fromChain, toChain, user } = result
 
-        return soliditySha3([
-          { type: 'uint32', value: this.APP_ID },
+        return [
           { type: 'uint256', value: txId },
           { type: 'uint256', value: tokenId },
           { type: 'uint256', value: amount },
           { type: 'uint256', value: fromChain },
           { type: 'uint256', value: toChain },
           { type: 'address', value: user }
-        ])
-
+        ]
+      case 'test':
+        return [{type: 'string', value: result.toString()}]
       default:
-        return null
+        throw { message: `Unknown method: ${method}` }
     }
   }
 }
