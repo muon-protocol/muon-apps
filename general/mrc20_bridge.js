@@ -17,6 +17,11 @@ const ABI_getTx = [
   }
 ]
 
+const BRIDGE_ADDRESSES = {
+  bsctest: "0xC061365eaE4a469f3eDe035c1c8f3C0F602CfB03",
+  mumbai: "0x4D246dFDbAAb587f4A3F8bCb31B47022267f6b70"
+}
+
 module.exports = {
   APP_NAME: 'mrc20_bridge',
 
@@ -28,9 +33,13 @@ module.exports = {
 
     switch (method) {
       case 'claim':
-        let { depositAddress, depositTxId, depositNetwork = 'eth' } = params
-        if (!depositAddress) throw { message: 'Invalid contarct address' }
+        let { depositTxId, depositNetwork = 'eth' } = params
+        if (!(depositNetwork in BRIDGE_ADDRESSES)) {
+          throw { message: 'Invalid deposit network' }
+        }
         if (!depositTxId) throw { message: 'Invalid deposit Tx Id' }
+
+        const depositAddress = BRIDGE_ADDRESSES[depositNetwork]
 
         let result = await ethCall(
           depositAddress,
@@ -39,7 +48,15 @@ module.exports = {
           ABI_getTx,
           depositNetwork
         )
-        return result
+        let { txId, tokenId, amount, fromChain, toChain, user } = result
+        return {
+          txId: txId.toString(),
+          tokenId: tokenId.toString(),
+          amount: amount.toString(),
+          fromChain: fromChain.toString(),
+          toChain: toChain.toString(),
+          user
+        }
       case 'test':
           return 'done';
       default:
