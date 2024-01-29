@@ -7,7 +7,7 @@ const BRIGHTID_NODES = [
 ];
 
 module.exports = {
-  APP_NAME: "brightid",
+  APP_NAME: "muon_brightid",
 
   getContextIds: async function (context, contextId) {
     const results = await Promise.allSettled(
