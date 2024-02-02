@@ -64,7 +64,7 @@ const DeRandApp = {
 
     return muonSha3(
       { type: "uint256", value: chainId },
-      { type: "byte32", value: txHash }
+      { type: "bytes", value: txHash }
     );
   },
 
