@@ -9,36 +9,56 @@ const PionerV1App = {
         let { method, data: { params = {} } } = request;
         switch (method) {
             case 'price':
-                const { asset1, asset2 } = params;
+                const { asset1, asset2, requestPairBid, requestPairAsk, requestConfidence, requestSignTime } = params;
                 const prices = await this.fetchPrices(asset1, asset2);
-                const isMarketOpen = this.isValidPriceData(prices, /* appropriate config */);
-
+    
+                if (prices.oldestTimestamp < requestSignTime) {
+                    throw new Error(`Sign time ${prices.oldestTimestamp} is not older than request sign time ${requestSignTime}.`);
+                }
+    
                 return {
                     asset1: this.convertToBytes32(asset1),
                     asset2: this.convertToBytes32(asset2),
-                    pairBid: this.scaleUp(prices.pairBid).toString(),
-                    pairAsk: this.scaleUp(prices.pairAsk).toString(),
-                    confidence: this.scaleUp(prices.confidence).toString()
-
+                    requestPairBid: requestPairBid.toString(),
+                    requestPairAsk: requestPairAsk.toString(),
+                    pairBid: prices.pairBid.toString(),
+                    pairAsk: prices.pairAsk.toString(),
+                    confidence: prices.confidence.toString(),
+                    requestConfidence: requestConfidence.toString(),
+                    requestSignTime: requestSignTime.toString(),
+                    oldestTimestamp: prices.oldestTimestamp.toString() 
                 };
         }
     },
+    
 
     signParams: function (request, result) {
-        const signTime = result.oldestTimestamp ? result.oldestTimestamp : Math.floor(Date.now() / 1000);
-
+        const signTimeBN = new BN(result.oldestTimestamp);
+        const requestSignTimeBN = new BN(result.requestSignTime);
+        const confidenceBN = new BN(result.confidence);
+        const requestConfidenceBN = new BN(result.requestConfidence);
+    
+        if (signTimeBN.lt(requestSignTimeBN)) {
+            throw new Error(`Sign time ${result.oldestTimestamp} is newer than requested sign time ${result.requestSignTime}.`);
+        }
+    
+        if (confidenceBN.gt(requestConfidenceBN)) {
+            throw new Error(`Actual confidence ${result.confidence} is greater than requested confidence ${result.requestConfidence}.`);
+        }
+    
         switch (request.method) {
             case 'price':
                 return [
-                    { name:'asset1' ,type: 'bytes32', value: result.asset1 },
-                    { name:'asset2' ,type: 'bytes32', value: result.asset2 },
-                    { name:'pairBid' ,type: 'uint256', value: result.pairBid },
-                    { name:'pairAsk' ,type: 'uint256', value: result.pairAsk },
-                    { name:'confidence' ,type: 'uint256', value: result.confidence },
-                    { name:'signTime' ,type: 'uint256', value: signTime.toString() }
+                    { name: 'asset1', type: 'bytes32', value: result.asset1 },
+                    { name: 'asset2', type: 'bytes32', value: result.asset2 },
+                    { name: 'requestPairBid', type: 'uint256', value: this.scaleUp(result.requestPairBid).toString() },
+                    { name: 'requestPairAsk', type: 'uint256', value: this.scaleUp(result.requestPairAsk).toString() },
+                    { name: 'requestConfidence', type: 'uint256', value: this.scaleUp(result.requestConfidence).toString() },
+                    { name: 'requestSignTime', type: 'uint256', value: this.scaleUp(result.requestSignTime).toString() },
                 ];
         }
     },
+    
 
 fetchPrices: async function (asset1, asset2) {
     const [result1, result2] = await Promise.all([
@@ -56,7 +76,7 @@ fetchPrices: async function (asset1, asset2) {
     return {
         pairBid: adjustedPrices1.avgBid / adjustedPrices2.avgBid,
         pairAsk: adjustedPrices1.avgAsk / adjustedPrices2.avgAsk,
-        confidence: Math.max(1 - highestConfidence / 100, 0),
+        confidence: highestConfidence,
         oldestTimestamp
     };
 },
@@ -82,9 +102,11 @@ fetchPrices: async function (asset1, asset2) {
     },
 
     loadApiConfigsForType: function (assetType) {
+        const allConfigs = JSON.parse(process.env.APPS_PIONERV1_VARS);
         const configs = [];
         const prefix = `API_${assetType.toUpperCase()}_`;
-        for (const [key, value] of Object.entries(process.env)) {
+    
+        for (const [key, value] of Object.entries(allConfigs)) {
             if (key.startsWith(prefix)) {
                 const parts = key.substring(prefix.length).split('_');
                 const apiIdentifier = parts[0];
@@ -99,7 +121,7 @@ fetchPrices: async function (asset1, asset2) {
         }
         return configs;
     },
-
+    
     formatSymbolForAPI: function (assetType, symbol) {
         return assetType === 'fx' ? symbol.toLowerCase() : symbol.toUpperCase();
     },
@@ -111,11 +133,25 @@ fetchPrices: async function (asset1, asset2) {
             const data = Array.isArray(response.data) ? response.data[0] : response.data;
     
             const timestampField = config.time_field;
-            const timestamp = data[timestampField] ? parseInt(data[timestampField]) : null;
-            console.log(data, config.bid_field,config.ask_field );
+            let timestamp = data[timestampField];
+            if (typeof timestamp === 'number') {
+                timestamp *= timestamp < 1e12 ? 1000 : 1;
+            } else if (typeof timestamp === 'string') {
+                timestamp = new Date(timestamp).getTime();
+            } else {
+                timestamp = null;
+            }
+    
+            const bid = parseFloat(data[config.bid_field]);
+            const ask = parseFloat(data[config.ask_field]);
+            if (isNaN(bid) || isNaN(ask) || bid <= 0 || ask <= 0 || ask < bid) {
+                console.error(`Invalid price data: `, { bid, ask });
+                return null;
+            }
+    
             return {
-                bid: parseFloat(data[config.bid_field]),
-                ask: parseFloat(data[config.ask_field]),
+                bid,
+                ask,
                 timestamp
             };
         } catch (error) {
@@ -123,6 +159,7 @@ fetchPrices: async function (asset1, asset2) {
             return null;
         }
     },
+    
     
     isValidPriceData: function (data, config) {
         const hasRequiredFields = data && 
