@@ -1,4 +1,4 @@
-const { ethCall, soliditySha3 } = MuonAppUtils
+const { ethCall } = MuonAppUtils
 
 const ABI_getTx = [
   {
@@ -17,9 +17,13 @@ const ABI_getTx = [
   }
 ]
 
+const BRIDGE_ADDRESSES = {
+  bsctest: "0xC061365eaE4a469f3eDe035c1c8f3C0F602CfB03",
+  mumbai: "0x4D246dFDbAAb587f4A3F8bCb31B47022267f6b70"
+}
+
 module.exports = {
   APP_NAME: 'mrc20_bridge',
-  APP_ID: 5,
 
   onRequest: async function (request) {
     let {
@@ -29,9 +33,13 @@ module.exports = {
 
     switch (method) {
       case 'claim':
-        let { depositAddress, depositTxId, depositNetwork = 'eth' } = params
-        if (!depositAddress) throw { message: 'Invalid contarct address' }
+        let { depositTxId, depositNetwork = 'eth' } = params
+        if (!(depositNetwork in BRIDGE_ADDRESSES)) {
+          throw { message: 'Invalid deposit network' }
+        }
         if (!depositTxId) throw { message: 'Invalid deposit Tx Id' }
+
+        const depositAddress = BRIDGE_ADDRESSES[depositNetwork]
 
         let result = await ethCall(
           depositAddress,
@@ -40,32 +48,41 @@ module.exports = {
           ABI_getTx,
           depositNetwork
         )
-        return result
-
+        let { txId, tokenId, amount, fromChain, toChain, user } = result
+        return {
+          txId: txId.toString(),
+          tokenId: tokenId.toString(),
+          amount: amount.toString(),
+          fromChain: fromChain.toString(),
+          toChain: toChain.toString(),
+          user
+        }
+      case 'test':
+          return 'done';
       default:
-        throw { message: `Unknown method ${params}` }
+        throw { message: `Unknown method ${method}` }
     }
   },
 
-  hashRequestResult: function (request, result) {
+  signParams: function (request, result) {
     let { method } = request
 
     switch (method) {
       case 'claim':
         let { txId, tokenId, amount, fromChain, toChain, user } = result
 
-        return soliditySha3([
-          { type: 'uint32', value: this.APP_ID },
+        return [
           { type: 'uint256', value: txId },
           { type: 'uint256', value: tokenId },
           { type: 'uint256', value: amount },
           { type: 'uint256', value: fromChain },
           { type: 'uint256', value: toChain },
           { type: 'address', value: user }
-        ])
-
+        ]
+      case 'test':
+        return [{type: 'string', value: result.toString()}]
       default:
-        return null
+        throw { message: `Unknown method: ${method}` }
     }
   }
 }
