@@ -24,14 +24,14 @@ const StageUnitapApp = {
             throw e.response.data
         }
 
-        const { chain, wallet, multiplier, raffle } = result.data.entry
+        const { chain, userWalletAddress, multiplier, raffle } = result.data.entry
         const { raffleId, contract } = raffle
 
-        if (chain && wallet && multiplier && raffleId) {
+        if (chain && userWalletAddress && multiplier && raffleId) {
             return {
                 chain,
                 contract,
-                wallet,
+                wallet: userWalletAddress,
                 raffleId,
                 multiplier,
             }
@@ -68,10 +68,36 @@ const StageUnitapApp = {
         return { randomWords, expirationTime }
     },
 
+    getTokenTapClaim: async function (claimId) {
+        const url = `https://stage.unitap.app/api/tokentap/claim-detail/${claimId}/`
+        let result
+        try {
+            result = await axios.get(url, {
+                headers: { "Accept-Encoding": "gzip,deflate,compress" }
+            })
+        } catch (e) {
+            throw e.response.data
+        }
+
+        const { tokenDistribution, userWalletAddress } = result.data.data
+        const { chain: { chainId }, distributionId, contract } = tokenDistribution
+
+        if (chainId && userWalletAddress && distributionId && contract) {
+            return {
+                chain: chainId,
+                contract,
+                wallet: userWalletAddress,
+                distributionId
+            }
+        }
+
+        else throw { detail: 'INVALID_CLAIM_ENTRY' }
+    },
+
     onRequest: async function (request) {
         let { method, data: { params } } = request;
         switch (method) {
-            case 'raffle-entry':
+            case 'raffle-entry': {
                 let {
                     raffleEntryId
                 } = params
@@ -91,7 +117,7 @@ const StageUnitapApp = {
                     raffleId,
                     multiplier,
                 }
-
+            }
             case 'random-words': {
                 let {
                     chainId,
@@ -107,7 +133,26 @@ const StageUnitapApp = {
                     expirationTime,
                 }
             }
+            case 'claim-token': {
+                let {
+                    claimId
+                } = params
 
+                const { 
+                    chain,
+                    contract,
+                    wallet,
+                    distributionId
+                } = await this.getTokenTapClaim(claimId);
+
+                return {
+                    chain,
+                    contract,
+                    wallet,
+                    distributionId,
+                    claimId
+                }
+            }
             default:
                 throw { message: `invalid method ${method}` }
         }
@@ -134,7 +179,7 @@ const StageUnitapApp = {
                 ]
             }
 
-            case 'random-words':
+            case 'random-words': {
                 let {
                     randomWords,
                     expirationTime,
@@ -145,6 +190,25 @@ const StageUnitapApp = {
                     { type: 'uint256[]', value: randomWords },
                     { type: 'uint256', value: expirationTime },
                 ]
+            }
+
+            case 'claim-token': {
+                let {
+                    chain,
+                    contract,
+                    wallet,
+                    distributionId,
+                    claimId
+                } = result
+
+                return [
+                    { type: 'uint256', value: chain },
+                    { type: 'address', value: contract },
+                    { type: 'address', value: wallet },
+                    { type: 'uint256', value: distributionId },
+                    { type: 'uint256', value: claimId },
+                ]
+            }
 
             default:
                 throw { message: `Unknown method: ${request.method}` }
