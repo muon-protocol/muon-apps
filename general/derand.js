@@ -122,6 +122,7 @@ const DeRandApp = {
 
     return {
       chainId: chainId.toString(),
+      coordinatorAddress: logs[0].address,
       requestId: requestId.toString(),
       blockNum: blockNum.toString(),
       callbackGasLimit: callbackGasLimit.toString(),
@@ -188,6 +189,7 @@ const DeRandApp = {
       case "random-number": {
         let {
           chainId,
+          coordinatorAddress,
           requestId,
           blockNum,
           callbackGasLimit,
@@ -197,6 +199,7 @@ const DeRandApp = {
 
         return [
           { type: "uint256", value: chainId },
+          { type: "address", value: coordinatorAddress },
           { type: "uint256", value: requestId },
           { type: "uint256", value: blockNum },
           { type: "uint32", value: callbackGasLimit },
