@@ -1,6 +1,4 @@
-const { BigNumber } = require("ethers")
-
-const { soliditySha3, ethCall } = MuonAppUtils
+const { soliditySha3, ethCall, BN } = MuonAppUtils
 
 const getTimestamp = () => Math.floor(Date.now() / 1000)
 
@@ -56,10 +54,10 @@ const LGE_ADDRESSES = {
 	137: '0x16e7923e8b2DC378f366ED597514b90237C4C50f'
 }
 
-const total = BigNumber.from(6.6e6) * BigNumber.from(10).pow(18)
+const total = (new BN(6.6e6)).mul((new BN(10)).pow(new BN(18)))
 
 const TssApp = {
-	APP_NAME: 'gg',
+	APP_NAME: 'golden_goose',
 	useTss: true,
 
 	onRequest: async function (request) {
@@ -88,7 +86,7 @@ const TssApp = {
 					)
 				}
 
-				if (timestamp > getTimestamp()) throw { message: 'Invalid Timestamp' }
+				if (Math.abs(timestamp - getTimestamp()) < 600) throw { message: 'Invalid Timestamp' }
 
 				if (currentTotal > total) throw { message: 'Cap Reached' }
 
