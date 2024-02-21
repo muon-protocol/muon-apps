@@ -10,7 +10,8 @@ const ABI_getTx = [
       { internalType: 'uint256', name: 'amount', type: 'uint256' },
       { internalType: 'uint256', name: 'fromChain', type: 'uint256' },
       { internalType: 'uint256', name: 'toChain', type: 'uint256' },
-      { internalType: 'address', name: 'user', type: 'address' }
+      { internalType: 'address', name: 'user', type: 'address' },
+      { internalType: "bytes", name: "nftData", type: "bytes" }
     ],
     stateMutability: 'view',
     type: 'function'
@@ -24,7 +25,7 @@ const BRIDGE_ADDRESSES = {
 }
 
 module.exports = {
-  APP_NAME: 'mrc20_bridge',
+  APP_NAME: 'mrc404_bridge',
 
   onRequest: async function (request) {
     let {
@@ -49,14 +50,15 @@ module.exports = {
           ABI_getTx,
           depositNetwork
         )
-        let { txId, tokenId, amount, fromChain, toChain, user } = result
+        let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
         return {
           txId: txId.toString(),
           tokenId: tokenId.toString(),
           amount: amount.toString(),
           fromChain: fromChain.toString(),
           toChain: toChain.toString(),
-          user
+          user,
+          nftData
         }
       case 'test':
           return 'done';
@@ -70,7 +72,7 @@ module.exports = {
 
     switch (method) {
       case 'claim':
-        let { txId, tokenId, amount, fromChain, toChain, user } = result
+        let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
 
         return [
           { type: 'uint256', value: txId },
@@ -78,7 +80,8 @@ module.exports = {
           { type: 'uint256', value: amount },
           { type: 'uint256', value: fromChain },
           { type: 'uint256', value: toChain },
-          { type: 'address', value: user }
+          { type: 'address', value: user },
+          { type: 'bytes', value: nftData },
         ]
       case 'test':
         return [{type: 'string', value: result.toString()}]
