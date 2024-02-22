@@ -7,10 +7,11 @@ const ABI_getTx = [
     outputs: [
       { internalType: 'uint256', name: 'txId', type: 'uint256' },
       { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
       { internalType: 'uint256', name: 'fromChain', type: 'uint256' },
       { internalType: 'uint256', name: 'toChain', type: 'uint256' },
       { internalType: 'address', name: 'user', type: 'address' },
+      { internalType: 'address', name: 'nftContract', type: 'address' },
+      { internalType: "uint256[]", name: "nftIds", type: "uint256[]" },
       { internalType: "bytes", name: "nftData", type: "bytes" }
     ],
     stateMutability: 'view',
@@ -19,13 +20,12 @@ const ABI_getTx = [
 ]
 
 const BRIDGE_ADDRESSES = {
-  eth: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
-  optimism: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
-  arbitrum: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
+  bsctest: "0x69CaABbEd5E4ca21F23B92d3f793bC3c1f90B623",
+  mumbai: "0x4ea97448d7fBA5Ce325fD146Ba4D76Cd4808BC5b"
 }
 
 module.exports = {
-  APP_NAME: 'mrc404_bridge',
+  APP_NAME: 'mrc404_bridge_721',
 
   onRequest: async function (request) {
     let {
@@ -50,14 +50,15 @@ module.exports = {
           ABI_getTx,
           depositNetwork
         )
-        let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
+        let { txId, tokenId, fromChain, toChain, user, nftIds, nftData } = result
+        nftIds = nftIds.map((val) => val.toString());
         return {
           txId: txId.toString(),
           tokenId: tokenId.toString(),
-          amount: amount.toString(),
           fromChain: fromChain.toString(),
           toChain: toChain.toString(),
           user,
+          nftIds,
           nftData
         }
       case 'test':
@@ -72,15 +73,15 @@ module.exports = {
 
     switch (method) {
       case 'claim':
-        let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
+        let { txId, tokenId, fromChain, toChain, user, nftIds, nftData } = result
 
         return [
           { type: 'uint256', value: txId },
           { type: 'uint256', value: tokenId },
-          { type: 'uint256', value: amount },
           { type: 'uint256', value: fromChain },
           { type: 'uint256', value: toChain },
           { type: 'address', value: user },
+          { type: 'uint256[]', value: nftIds },
           { type: 'bytes', value: nftData },
         ]
       case 'test':
