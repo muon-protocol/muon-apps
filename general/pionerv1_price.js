@@ -40,7 +40,7 @@ const PionerV1App = {
         const proxyTimestamp = result.proxyTimestamp ;
 
         if (confidenceBN.gt(requestConfidenceBN)) {throw new Error(`0x101`);}
-        if( proxyTimestamp > requestSignTime) { throw new Error(`0x102`);}
+        if( Number(proxyTimestamp) > Number(requestSignTime)) { throw new Error(`0x102`);}
 
         const precision = new BN(10).pow(new BN(18)); 
         
