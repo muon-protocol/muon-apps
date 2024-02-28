@@ -9,16 +9,12 @@ const PionerV1App = {
         let { method, data: { params = {} } } = request;
         switch (method) {
             case 'price':
-                const { asset1, asset2, requestPairBid, requestPairAsk, requestConfidence, requestSignTime } = params;
-                const prices = await this.fetchPrices(asset1, asset2);
-    
-                if (prices.oldestTimestamp < requestSignTime) {
-                    throw new Error(`Sign time ${prices.oldestTimestamp} is not older than request sign time ${requestSignTime}.`);
-                }
-    
+                const { requestAsset1, requestAsset2, requestPairBid, requestPairAsk, requestConfidence, requestSignTime, requestPrecision, maxtimestampdiff } = params;
+                const prices = await this.makeApiCalls(maxtimestampdiff, requestPrecision, requestAsset1, requestAsset2);
+
                 return {
-                    asset1: this.convertToBytes32(asset1),
-                    asset2: this.convertToBytes32(asset2),
+                    requestAsset1: this.convertToBytes32(requestAsset1),
+                    requestAsset2: this.convertToBytes32(requestAsset2),
                     requestPairBid: requestPairBid.toString(),
                     requestPairAsk: requestPairAsk.toString(),
                     pairBid: prices.pairBid.toString(),
@@ -26,181 +22,143 @@ const PionerV1App = {
                     confidence: prices.confidence.toString(),
                     requestConfidence: requestConfidence.toString(),
                     requestSignTime: requestSignTime.toString(),
-                    oldestTimestamp: prices.oldestTimestamp.toString() 
+                    requestPrecision: requestPrecision.toString(),
+                    proxyTimestamp: prices.timestamp.toString(),
                 };
         }
     },
-    
 
     signParams: function (request, result) {
-        const signTimeBN = new BN(result.oldestTimestamp);
-        const requestSignTimeBN = new BN(result.requestSignTime);
-        const confidenceBN = new BN(result.confidence);
-        const requestConfidenceBN = new BN(result.requestConfidence);
-    
-        if (signTimeBN.lt(requestSignTimeBN)) {
-            throw new Error(`Sign time ${result.oldestTimestamp} is newer than requested sign time ${result.requestSignTime}.`);
+
+        const requestPairBidBN = new BN((result.requestPairBid * 1e18).toFixed(0), 10);
+        const requestPairAskBN = new BN((result.requestPairAsk * 1e18).toFixed(0), 10);
+        const pairBidBN = new BN((result.pairBid * 1e18).toFixed(0), 10);
+        const pairAskBN = new BN((result.pairAsk * 1e18).toFixed(0), 10);
+        const confidenceBN = new BN((result.confidence * 1e18).toFixed(0), 10);
+        const requestConfidenceBN = new BN((result.requestConfidence * 1e18).toFixed(0), 10);
+        const requestSignTime = result.requestSignTime ;
+        const proxyTimestamp = result.proxyTimestamp ;
+
+        if (confidenceBN.gt(requestConfidenceBN)) {throw new Error(`0x101`);}
+        if( Number(proxyTimestamp) > Number(requestSignTime)) { throw new Error(`0x102`);}
+
+        const precision = new BN(10).pow(new BN(18)); 
+        
+        const diffBid = precision.sub(pairBidBN.mul(precision).div(requestPairBidBN)).abs();
+        const diffAsk = precision.sub(pairAskBN.mul(precision).div(requestPairAskBN)).abs();
+        
+        if (diffBid.gt(requestConfidenceBN)) {
+            throw new Error(`0x103`);
         }
-    
-        if (confidenceBN.gt(requestConfidenceBN)) {
-            throw new Error(`Actual confidence ${result.confidence} is greater than requested confidence ${result.requestConfidence}.`);
-        }
-    
+        
+        if (diffAsk.gt(requestConfidenceBN)) {
+            throw new Error(`0x104`);
+        }   
+        const convertresult = this.convertToBytes32(result.requestAsset1);
+        const convertresult2 = this.convertToBytes32(result.requestAsset2);
+
         switch (request.method) {
             case 'price':
                 return [
-                    { name: 'asset1', type: 'bytes32', value: result.asset1 },
-                    { name: 'asset2', type: 'bytes32', value: result.asset2 },
+                    { name: 'requestAsset1', type: 'bytes32', value: convertresult },
+                    { name: 'requestAsset2', type: 'bytes32', value: convertresult2},
                     { name: 'requestPairBid', type: 'uint256', value: this.scaleUp(result.requestPairBid).toString() },
                     { name: 'requestPairAsk', type: 'uint256', value: this.scaleUp(result.requestPairAsk).toString() },
                     { name: 'requestConfidence', type: 'uint256', value: this.scaleUp(result.requestConfidence).toString() },
-                    { name: 'requestSignTime', type: 'uint256', value: this.scaleUp(result.requestSignTime).toString() },
+                    { name: 'requestSignTime', type: 'uint256', value: result.requestSignTime},
+                    { name: 'requestPrecision', type: 'uint256', value: this.scaleUp(result.requestPrecision).toString() }
                 ];
         }
     },
-    
 
-fetchPrices: async function (asset1, asset2) {
-    const [result1, result2] = await Promise.all([
-        this.fetchAssetPrices(asset1),
-        this.fetchAssetPrices(asset2)
-    ]);
-
-    const adjustedPrices1 = asset1 === 'hardusd' ? { avgBid: 1, avgAsk: 1 } : this.calculateAveragePrices(result1.prices);
-    const adjustedPrices2 = asset2 === 'hardusd' ? { avgBid: 1, avgAsk: 1 } : this.calculateAveragePrices(result2.prices);
-    const asset1Confidence = asset1 === 'hardusd' ? 0 : this.calculateConfidence(result1.prices);
-    const asset2Confidence = asset2 === 'hardusd' ? 0 : this.calculateConfidence(result2.prices);
-    const highestConfidence = Math.max(asset1Confidence, asset2Confidence);
-    const oldestTimestamp = Math.min(result1.oldestTimestamp, result2.oldestTimestamp);
-
-    return {
-        pairBid: adjustedPrices1.avgBid / adjustedPrices2.avgBid,
-        pairAsk: adjustedPrices1.avgAsk / adjustedPrices2.avgAsk,
-        confidence: highestConfidence,
-        oldestTimestamp
-    };
-},
-
-    fetchAssetPrices: async function (asset) {
-        if (asset === 'hardusd') return { prices: [{ bid: 1, ask: 1, timestamp: null }], oldestTimestamp: null };
-        const [assetType, assetSymbol] = asset.split('.');
-        const apiConfigs = this.loadApiConfigsForType(assetType);
-        let oldestTimestamp = Infinity;
-        const prices = [];
-
-        for (const config of apiConfigs) {
-            const formattedSymbol = this.formatSymbolForAPI(assetType, assetSymbol);
-            const priceData = await this.fetchPriceFromAPI(config, formattedSymbol);
-            if (priceData) {
-                prices.push(priceData);
-                if (priceData.timestamp && priceData.timestamp < oldestTimestamp) {
-                    oldestTimestamp = priceData.timestamp;
-                }
-            }
-        }
-        return { prices, oldestTimestamp };
-    },
-
-    loadApiConfigsForType: function (assetType) {
-        const allConfigs = JSON.parse(process.env.APPS_PIONERV1_VARS);
-        const configs = [];
-        const prefix = `API_${assetType.toUpperCase()}_`;
-    
-        for (const [key, value] of Object.entries(allConfigs)) {
-            if (key.startsWith(prefix)) {
-                const parts = key.substring(prefix.length).split('_');
-                const apiIdentifier = parts[0];
-                const attribute = parts.slice(1).join('_').toLowerCase();
-                const existingConfig = configs.find(c => c.identifier === apiIdentifier);
-                if (existingConfig) {
-                    existingConfig[attribute] = value;
-                } else {
-                    configs.push({ identifier: apiIdentifier, [attribute]: value });
-                }
-            }
-        }
-        return configs;
-    },
-    
-    formatSymbolForAPI: function (assetType, symbol) {
-        return assetType === 'fx' ? symbol.toLowerCase() : symbol.toUpperCase();
-    },
-
-    fetchPriceFromAPI: async function (config, symbol) {
-        const url = `${config.url_before_asset}${symbol}${config.url_after_asset}`;
+    makeApiCalls: async function(maxtimestampdiff, abPrecision, asset1, asset2) {
         try {
-            const response = await axios.get(url);
-            const data = Array.isArray(response.data) ? response.data[0] : response.data;
+            const proxyVars = process.env.APPS_PIONERV1_VARS;
+            const proxies = JSON.parse(proxyVars);
     
-            const timestampField = config.time_field;
-            let timestamp = data[timestampField];
-            if (typeof timestamp === 'number') {
-                timestamp *= timestamp < 1e12 ? 1000 : 1;
-            } else if (typeof timestamp === 'string') {
-                timestamp = new Date(timestamp).getTime();
-            } else {
-                timestamp = null;
+            const responsePromises = [];
+            for (let i = 1; i <= parseInt(proxies.PROXY_NUMBERS); i++) {
+                const proxy = proxies[`PROXY${i}`];
+                const apiKey = proxies[`PROXY${i}KEY`];
+    
+                const apiUrl = `${proxy}${apiKey}&a=${asset1}&b=${asset2}&abprecision=${abPrecision}&confprecision=${abPrecision}&maxtimestampdiff=${maxtimestampdiff}`;
+    
+                const timeoutConfig = { timeout: 500 };
+                
+                responsePromises.push(axios.get(apiUrl, timeoutConfig).then(response => {
+                    if (response.status === 200) {
+                        const { pairBid, pairAsk, confidence, timestamp } = response.data;
+                        const numericPairBid = parseFloat(pairBid);
+                        const numericPairAsk = parseFloat(pairAsk);
+                        const numericConfidence = parseFloat(confidence);
+                        const numericTimestamp = parseFloat(timestamp);
+    
+                        if (!isNaN(numericPairBid) &&
+                            !isNaN(numericPairAsk) &&
+                            !isNaN(numericConfidence) &&
+                            !isNaN(numericTimestamp)) {
+                            return { ...response, data: { ...response.data, pairBid: numericPairBid, pairAsk: numericPairAsk, confidence: numericConfidence, timestamp: numericTimestamp } };
+                        } else {
+                            console.log(`Invalid data from Proxy ${i}.`);
+                            return null;
+                        }
+                    } else {
+                        console.log(`Invalid response status from Proxy ${i}. Status: ${response.status}. url: ${apiUrl}`);
+                        return null;
+                    }
+                }).catch(error => {
+                    console.error(`Error with Proxy : ${error.message}. Url ${apiUrl} :`);
+                    return null;
+                }));
             }
     
-            const bid = parseFloat(data[config.bid_field]);
-            const ask = parseFloat(data[config.ask_field]);
-            if (isNaN(bid) || isNaN(ask) || bid <= 0 || ask <= 0 || ask < bid) {
-                console.error(`Invalid price data: `, { bid, ask });
-                return null;
-            }
+            const responses = await Promise.all(responsePromises);
     
-            return {
-                bid,
-                ask,
-                timestamp
-            };
+            const validResponses = responses.filter(response => response !== null);
+            if ( validResponses.length > 0 ) {
+                let averageTimestamp = 0;
+                let averagePairBid = 0;
+                let averagePairAsk = 0;
+                let averageConfidence = 0;
+    
+                for (const response of validResponses) {
+                    const { timestamp, pairBid, pairAsk, confidence } = response.data;
+    
+                    averageTimestamp += timestamp;
+                    averagePairBid += pairBid;
+                    averagePairAsk += pairAsk;
+                    averageConfidence += confidence;
+                }
+    
+                averageTimestamp /= validResponses.length;
+                averagePairBid /= validResponses.length;
+                averagePairAsk /= validResponses.length;
+                averageConfidence /= validResponses.length;
+    
+                let closestDistance = Infinity;
+                let closestResponse = null;
+    
+                for (const response of validResponses) {
+                    const { timestamp, pairBid, pairAsk, confidence } = response.data;
+    
+                    const distance = Math.abs(timestamp - averageTimestamp) +
+                                     Math.abs(pairBid - averagePairBid) +
+                                     Math.abs(pairAsk - averagePairAsk) +
+                                     Math.abs(confidence - averageConfidence);
+    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestResponse = response.data;
+                    }
+                }
+    
+                return closestResponse;
+            }
         } catch (error) {
-            console.error(`Error fetching price from API: `, error);
-            return null;
+            console.error('Error making API calls:', error);
         }
     },
     
-    
-    isValidPriceData: function (data, config) {
-        const hasRequiredFields = data && 
-                                  data.hasOwnProperty(config.bid_field) && 
-                                  data.hasOwnProperty(config.ask_field) && 
-                                  data.hasOwnProperty(config.time_field);
-    
-        if (!hasRequiredFields) return false;
-    
-        const bidAskValid = data[config.bid_field] != null && data[config.ask_field] != null;
-        const timestampValid = data[config.time_field] != null && parseInt(data[config.time_field]) >= 10000;
-    
-        return bidAskValid && timestampValid;
-    },
-    
-
-    calculateAveragePrices: function (prices) {
-        const totalBid = prices.reduce((sum, price) => sum + (price ? price.bid : 0), 0);
-        const totalAsk = prices.reduce((sum, price) => sum + (price ? price.ask : 0), 0);
-        const count = prices.filter(price => price).length;
-        return {
-            avgBid: count > 0 ? totalBid / count : NaN,
-            avgAsk: count > 0 ? totalAsk / count : NaN
-        };
-    },
-
-    calculateConfidence: function (prices) {
-        let minBid = prices[0].bid, maxBid = prices[0].bid;
-        let minAsk = prices[0].ask, maxAsk = prices[0].ask;
-        prices.forEach(price => {
-            if (price.bid < minBid) minBid = price.bid;
-            if (price.bid > maxBid) maxBid = price.bid;
-            if (price.ask < minAsk) minAsk = price.ask;
-            if (price.ask > maxAsk) maxAsk = price.ask;
-        });
-        const bidSpread = ((maxBid - minBid) / minBid) * 100;
-        const askSpread = ((maxAsk - minAsk) / minAsk) * 100;
-        return Math.max(bidSpread, askSpread);
-    },
-    
-
     convertToBytes32: function (str) {
         const hex = Web3.utils.toHex(str);
         return Web3.utils.padRight(hex, 64);
@@ -209,6 +167,7 @@ fetchPrices: async function (asset1, asset2) {
     scaleUp: function (value) {
         return new BN(toBaseUnit(String(value), 18));
     }
+
 };
 
 module.exports = PionerV1App;
