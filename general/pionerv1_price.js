@@ -54,14 +54,13 @@ const PionerV1App = {
         if (diffAsk.gt(requestConfidenceBN)) {
             throw new Error(`0x104`);
         }   
-        const convertresult = this.convertToBytes32(result.requestAsset1);
-        const convertresult2 = this.convertToBytes32(result.requestAsset2);
 
+        
+        const assetHex = this.convertToBytes32(result.requestAsset1 + '/' + result.requestAsset2);
         switch (request.method) {
             case 'price':
                 return [
-                    { name: 'requestAsset1', type: 'bytes32', value: convertresult },
-                    { name: 'requestAsset2', type: 'bytes32', value: convertresult2},
+                    { name: 'requestAssetHex', type: 'bytes32', value: assetHex },
                     { name: 'requestPairBid', type: 'uint256', value: this.scaleUp(result.requestPairBid).toString() },
                     { name: 'requestPairAsk', type: 'uint256', value: this.scaleUp(result.requestPairAsk).toString() },
                     { name: 'requestConfidence', type: 'uint256', value: this.scaleUp(result.requestConfidence).toString() },
@@ -160,7 +159,9 @@ const PionerV1App = {
     },
     
     convertToBytes32: function (str) {
-        const hex = Web3.utils.toHex(str);
+        const maxLength = 31;
+        const truncatedStr = str.slice(0, maxLength);
+        const hex = Web3.utils.toHex(truncatedStr);
         return Web3.utils.padRight(hex, 64);
     },
 
