@@ -20,8 +20,8 @@ const ABI_getTx = [
 ]
 
 const BRIDGE_ADDRESSES = {
-  sepolia: "0xE166A32d179a361c1017f8efFEe22bacAe6160FC",
-  mumbai: "0xC200536beD0dDD8d13eA7C8Eabda762f33028FB0"
+  sepolia: "0x1fFD99C83a02899B403e2ed7fABDb2EcB82b2573",
+  mumbai: "0xb57963d5250d281Bfab7BA66361d53523d990A3f"
 }
 
 module.exports = {
