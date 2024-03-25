@@ -55,7 +55,10 @@ module.exports = {
           ABI_getTx,
           depositNetwork
         )
-        let { txId, tokenId, fromChain, toChain, user, nftIds, nftData } = result
+        let { txId, tokenId, fromChain, toChain, user, nftIds, nftData } = result;
+        if(!tokenId){
+          throw {message: "Invalid tx"}
+        }
         nftIds = nftIds.map((val) => val.toString());
         return {
           txId: txId.toString(),

@@ -55,6 +55,9 @@ module.exports = {
           depositNetwork
         )
         let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
+        if(!tokenId){
+          throw {message: "Invalid tx"}
+        }
         return {
           txId: txId.toString(),
           tokenId: tokenId.toString(),
