@@ -86,7 +86,7 @@ const TssApp = {
 					)
 				}
 
-				if (getTimestamp() - 300 < timestamp && timestamp < getTimestamp() + 300) throw { message: 'Invalid Timestamp' }
+				if (!(getTimestamp() - 300 < timestamp && timestamp < getTimestamp() + 300)) throw { message: 'Invalid Timestamp' }
 
 				if (currentTotal > total) throw { message: 'Cap Reached' }
 
