@@ -6,7 +6,7 @@ const PRIZE_TAP_VRF_CLIENT = {
     abi: [{ "inputs": [{ "internalType": "uint256", "name": "requestId", "type": "uint256" }], "name": "getRandomWords", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "lastRequestId", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "vrfRequests", "outputs": [{ "internalType": "uint256", "name": "expirationTime", "type": "uint256" }, { "internalType": "uint256", "name": "numWords", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 }
 
-const PRIZE_TAP_RAFFLE = [{ "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "raffles", "outputs": [{ "internalType": "address", "name": "initiator", "type": "address" }, { "internalType": "uint256", "name": "maxParticipants", "type": "uint256" }, { "internalType": "uint256", "name": "maxMultiplier", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "uint256", "name": "endTime", "type": "uint256" }, { "internalType": "uint256", "name": "participantsCount", "type": "uint256" }, { "internalType": "uint32", "name": "winnersCount", "type": "uint32" }, { "internalType": "bool", "name": "exists", "type": "bool" }, { "internalType": "enum AbstractPrizetapRaffle.Status", "name": "status", "type": "uint8" }, { "internalType": "bytes32", "name": "requirementsHash", "type": "bytes32" }], "stateMutability": "view", "type": "function" }]
+const PRIZE_TAP_RAFFLE = [{ "inputs": [{ "internalType": "uint256", "name": "raffleId", "type": "uint256" }], "name": "getWinnersCount", "outputs": [{ "internalType": "uint256", "name": "winnersCount", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 const UnitapApp = {
     APP_NAME: 'unitap',
@@ -24,14 +24,14 @@ const UnitapApp = {
             throw e.response.data
         }
 
-        const { chain, wallet, multiplier, raffle } = result.data.entry
+        const { chain, userWalletAddress, multiplier, raffle } = result.data.entry
         const { raffleId, contract } = raffle
 
-        if (chain && wallet && multiplier && raffleId) {
+        if (chain && userWalletAddress && multiplier && raffleId) {
             return {
                 chain,
                 contract,
-                wallet,
+                wallet: userWalletAddress,
                 raffleId,
                 multiplier,
             }
@@ -41,7 +41,7 @@ const UnitapApp = {
     },
 
     getWinnersCount: async function (chainId, raffelId, prizetapRaffle) {
-        const { winnersCount } = await ethCall(prizetapRaffle, 'raffles', [raffelId], PRIZE_TAP_RAFFLE, chainId)
+        const winnersCount = await ethCall(prizetapRaffle, 'getWinnersCount', [raffelId], PRIZE_TAP_RAFFLE, chainId)
         if (winnersCount == 0) {
             throw { detail: 'INVALID_RAFFLE_ID' }
         }
@@ -68,10 +68,36 @@ const UnitapApp = {
         return { randomWords, expirationTime }
     },
 
+    getTokenTapClaim: async function (claimId) {
+        const url = `https://api.unitap.app/api/tokentap/claim-detail/${claimId}/`
+        let result
+        try {
+            result = await axios.get(url, {
+                headers: { "Accept-Encoding": "gzip,deflate,compress" }
+            })
+        } catch (e) {
+            throw e.response.data
+        }
+
+        const { tokenDistribution, userWalletAddress } = result.data.data
+        const { chain: { chainId }, distributionId, contract } = tokenDistribution
+
+        if (chainId && userWalletAddress && distributionId && contract) {
+            return {
+                chain: chainId,
+                contract,
+                wallet: userWalletAddress,
+                distributionId
+            }
+        }
+
+        else throw { detail: 'INVALID_CLAIM_ENTRY' }
+    },
+
     onRequest: async function (request) {
         let { method, data: { params } } = request;
         switch (method) {
-            case 'raffle-entry':
+            case 'raffle-entry': {
                 let {
                     raffleEntryId
                 } = params
@@ -91,7 +117,7 @@ const UnitapApp = {
                     raffleId,
                     multiplier,
                 }
-
+            }
             case 'random-words': {
                 let {
                     chainId,
@@ -107,7 +133,26 @@ const UnitapApp = {
                     expirationTime,
                 }
             }
+            case 'claim-token': {
+                let {
+                    claimId
+                } = params
 
+                const { 
+                    chain,
+                    contract,
+                    wallet,
+                    distributionId
+                } = await this.getTokenTapClaim(claimId);
+
+                return {
+                    chain,
+                    contract,
+                    wallet,
+                    distributionId,
+                    claimId
+                }
+            }
             default:
                 throw { message: `invalid method ${method}` }
         }
@@ -134,7 +179,7 @@ const UnitapApp = {
                 ]
             }
 
-            case 'random-words':
+            case 'random-words': {
                 let {
                     randomWords,
                     expirationTime,
@@ -145,6 +190,25 @@ const UnitapApp = {
                     { type: 'uint256[]', value: randomWords },
                     { type: 'uint256', value: expirationTime },
                 ]
+            }
+
+            case 'claim-token': {
+                let {
+                    chain,
+                    contract,
+                    wallet,
+                    distributionId,
+                    claimId
+                } = result
+
+                return [
+                    { type: 'uint256', value: chain },
+                    { type: 'address', value: contract },
+                    { type: 'address', value: wallet },
+                    { type: 'uint256', value: distributionId },
+                    { type: 'uint256', value: claimId },
+                ]
+            }
 
             default:
                 throw { message: `Unknown method: ${request.method}` }
