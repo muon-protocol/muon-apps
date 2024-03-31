@@ -51,7 +51,7 @@ const LGE_ABI = [{
 }]
 
 const LGE_ADDRESSES = {
-	137: '0x16e7923e8b2DC378f366ED597514b90237C4C50f'
+	137: '0xd73384295A3aF36E0F5d44508cac1E28f3fBcEa2'
 }
 
 const total = (new BN(6.6e6)).mul((new BN(10)).pow(new BN(18)))
@@ -86,7 +86,7 @@ const TssApp = {
 					)
 				}
 
-				if (Math.abs(timestamp - getTimestamp()) < 600) throw { message: 'Invalid Timestamp' }
+				if (!(getTimestamp() - 300 < timestamp && timestamp < getTimestamp() + 300)) throw { message: 'Invalid Timestamp' }
 
 				if (currentTotal > total) throw { message: 'Cap Reached' }
 
