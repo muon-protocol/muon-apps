@@ -69,7 +69,7 @@ const UnitapApp = {
     },
 
     getTokenTapClaim: async function (claimId) {
-        const url = `https://stage.unitap.app/api/tokentap/claim-detail/${claimId}/`
+        const url = `https://api.unitap.app/api/tokentap/claim-detail/${claimId}/`
         let result
         try {
             result = await axios.get(url, {
