@@ -10,11 +10,11 @@ const BTQApp = {
     switch (method) {
       case 'verifyFalconSig':
         try {
-          const txData = Uint8Array.from(Buffer.from(params.txData));
+          const txData = Uint8Array.from(Buffer.from(params.txData, 'hex'));
           const isVerified = await falcon.verify(
             txData,
-            Uint8Array.from(params.falconSig),
-            Uint8Array.from(params.falconPubKey)
+            Uint8Array.from(Buffer.from(params.falconSig, 'hex')),
+            Uint8Array.from(Buffer.from(params.falconPubKey, 'hex')),
           )
           if(isVerified) {
             return params.txData;
