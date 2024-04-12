@@ -9,6 +9,7 @@ const SCALE = scaleUp('1')
 
 module.exports = {
     APP_NAME: 'thenaTrade2Earn',
+    useFrost: true,
 
     isToleranceOk: function (amount, expectedAmount, validTolerance) {
         let diff = new BN(amount).sub(new BN(expectedAmount)).abs()
