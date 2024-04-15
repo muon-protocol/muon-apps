@@ -1,8 +1,8 @@
 const { axios, ethCall } = MuonAppUtils
 
 const PRIZE_TAP_VRF_CLIENT = {
-    chainId: 80001,
-    address: "0xD1E7877A1C3F782dec76FB58C2B926365433d46F",
+    chainId: 97,
+    address: "0xb8B0c04282d9c55cb17d7ef0bF56ef3Bbe203F3C",
     abi: [{ "inputs": [{ "internalType": "uint256", "name": "requestId", "type": "uint256" }], "name": "getRandomWords", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "lastRequestId", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "vrfRequests", "outputs": [{ "internalType": "uint256", "name": "expirationTime", "type": "uint256" }, { "internalType": "uint256", "name": "numWords", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 }
 
