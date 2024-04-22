@@ -8,7 +8,7 @@ const VALID_TOLERANCE = scaleUp('0.01')
 const SCALE = scaleUp('1')
 
 module.exports = {
-    APP_NAME: 'morphexTrade2Earn',
+    APP_NAME: 'bmxTrade2Earn',
     useFrost: true,
 
     isToleranceOk: function (amount, expectedAmount, validTolerance) {
