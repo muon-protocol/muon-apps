@@ -1,6 +1,6 @@
 const { axios, ethCall, BN, toBaseUnit } = MuonAppUtils
 
-const DibsRepository = "PENDING"
+const DibsRepository = "0x1f05D4C5BAAFa5a10b81D9890e32825025Ca2eAD"
 const DIBS_REPO_ABI = [{ "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "name": "projects", "outputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }, { "internalType": "address", "name": "dibs", "type": "address" }, { "internalType": "string", "name": "subgraphEndpoint", "type": "string" }, { "internalType": "uint32", "name": "firstRoundStartTime", "type": "uint32" }, { "internalType": "uint32", "name": "roundDuration", "type": "uint32" }, { "internalType": "bool", "name": "exists", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "roundId", "type": "bytes32" }], "name": "getSeed", "outputs": [{ "internalType": "bool", "name": "fulfilled", "type": "bool" }, { "internalType": "uint256", "name": "seed", "type": "uint256" }], "stateMutability": "view", "type": "function" }]
 
 const scaleUp = (value) => new BN(toBaseUnit(String(value), 18))
@@ -36,7 +36,7 @@ module.exports = {
 
 
     fetchProject: async function (projectId) {
-        const { dibs, chainId, subgraphEndpoint } = await ethCall(DibsRepository, 'projects', [projectId], DIBS_REPO_ABI, 250)
+        const { dibs, chainId, subgraphEndpoint } = await ethCall(DibsRepository, 'projects', [projectId], DIBS_REPO_ABI, 8453)
         return { dibs, chainId, subgraphEndpoint }
     },
 
