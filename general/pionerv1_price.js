@@ -25,6 +25,9 @@ const PionerV1App = {
                     requestPrecision: requestPrecision,
                     proxyTimestamp: prices.timestamp,
                 };
+
+            default:
+                throw { message: `101 - Unknown method ${params}` }
         }
     },
 
@@ -38,8 +41,8 @@ const PionerV1App = {
         const requestSignTime = result.requestSignTime;
         const proxyTimestamp = result.proxyTimestamp;
 
-        if (confidenceBN.gt(requestConfidenceBN)) { throw new Error(`0x101`); }
-        if (proxyTimestamp > parseInt(requestSignTime)) { throw new Error(`0x102`); }
+        if (confidenceBN.gt(requestConfidenceBN)) { throw { message: '102 - confidence > requestConfidence' } }
+        if (proxyTimestamp > parseInt(requestSignTime)) { throw { message: '103 - proxyTimestamp > requestSignTime' } }
 
         const precision = new BN('1000000000000000000');
 
@@ -47,11 +50,11 @@ const PionerV1App = {
         const diffAsk = precision.sub(pairAskBN.mul(precision).div(requestPairAskBN)).abs();
 
         if (diffBid.gt(requestConfidenceBN)) {
-            throw new Error(`0x103`);
+            throw { message: '104 - diffBid > requestConfidence' }
         }
 
         if (diffAsk.gt(requestConfidenceBN)) {
-            throw new Error(`0x104`);
+            throw { message: '105 - diffAsk > requestConfidence' }
         }
 
 
@@ -70,87 +73,84 @@ const PionerV1App = {
     },
 
     makeApiCalls: async function (maxTimestampDiff, abPrecision, asset1, asset2) {
-        try {
-            const proxyVars = process.env.APPS_PIONERV1_PROXIES;
-            const proxies = JSON.parse(proxyVars);
+        const proxyVars = process.env.APPS_PIONERV1_PROXIES;
+        const proxies = JSON.parse(proxyVars);
 
-            const responsePromises = [];
-            for (let i = 1; i <= Object.keys(proxies).length; i++) {
-                const address = proxies[i].address;
-                const key = proxies[i].key;
+        const responsePromises = [];
 
-                const apiUrl = `${address}${key}&a=${asset1}&b=${asset2}&abPrecision=${abPrecision}&confPrecision=${abPrecision}&maxTimestampDiff=${maxTimestampDiff}`;
+        for (let i = 1; i <= Object.keys(proxies).length; i++) {
+            const address = proxies[i].address;
+            const key = proxies[i].key;
 
-                const timeoutConfig = { timeout: 1000 };
+            const apiUrl = `${address}${key}&a=${asset1}&b=${asset2}&abPrecision=${abPrecision}&confPrecision=${abPrecision}&maxTimestampDiff=${maxTimestampDiff}`;
 
-                responsePromises.push(axios.get(apiUrl, timeoutConfig).then(response => {
-                    if (response.status === 200) {
-                        const { pairBid, pairAsk, confidence, timestamp } = response.data;
-                        response.data.floatPairBid = parseFloat(pairBid);
-                        response.data.floatPairAsk = parseFloat(pairAsk);
-                        response.data.floatConfidence = parseFloat(confidence);
+            responsePromises.push(axios.get(apiUrl).then(response => {
+                if (response.status === 200) {
+                    const { pairBid, pairAsk, confidence, timestamp } = response.data;
+                    response.data.floatPairBid = parseFloat(pairBid);
+                    response.data.floatPairAsk = parseFloat(pairAsk);
+                    response.data.floatConfidence = parseFloat(confidence);
 
-                        if (response.data.floatPairBid && response.data.floatPairAsk && !isNaN(response.data.floatConfidence) && timestamp) {
-                            return response;
-                        } else {
-                            console.log(`Invalid data from Proxy ${i}.`);
-                            return null;
-                        }
+                    if (response.data.floatPairBid && response.data.floatPairAsk && !isNaN(response.data.floatConfidence) && timestamp) {
+                        return response;
                     } else {
-                        console.log(`Invalid response status from Proxy ${i}. Status: ${response.status}. url: ${apiUrl}`);
+                        console.log(`Received invalid data from Proxy ${i}.`);
                         return null;
                     }
-                }).catch(error => {
-                    console.error(`Error with Proxy : ${error.message}. Url ${apiUrl} :`);
+                } else {
+                    console.log(`Invalid response status from Proxy ${i}. Status: ${response.status}. url: ${apiUrl}`);
                     return null;
-                }));
-            }
-
-            const responses = await Promise.all(responsePromises);
-
-            const validResponses = responses.filter(response => response !== null);
-            if (validResponses.length > 0) {
-                let averageTimestamp = 0;
-                let averagePairBid = 0;
-                let averagePairAsk = 0;
-                let averageConfidence = 0;
-
-                for (const response of validResponses) {
-                    const { timestamp, floatPairBid, floatPairAsk, floatConfidence } = response.data;
-
-                    averageTimestamp += timestamp;
-                    averagePairBid += floatPairBid;
-                    averagePairAsk += floatPairAsk;
-                    averageConfidence += floatConfidence;
                 }
-
-                averageTimestamp /= validResponses.length;
-                averagePairBid /= validResponses.length;
-                averagePairAsk /= validResponses.length;
-                averageConfidence /= validResponses.length;
-
-                let closestDistance = Infinity;
-                let closestResponse = null;
-
-                for (const response of validResponses) {
-                    const { timestamp, floatPairBid, floatPairAsk, floatConfidence } = response.data;
-
-                    const distance = Math.abs(timestamp - averageTimestamp) +
-                        Math.abs(floatPairBid - averagePairBid) +
-                        Math.abs(floatPairAsk - averagePairAsk) +
-                        Math.abs(floatConfidence - averageConfidence);
-
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestResponse = response.data;
-                    }
-                }
-
-                return closestResponse;
-            }
-        } catch (error) {
-            console.error('Error making API calls:', error);
+            }).catch(error => {
+                console.error(`Error with Proxy : ${error.message}. Url ${apiUrl} :`);
+                return null;
+            }));
         }
+
+        const responses = await Promise.all(responsePromises);
+
+        const validResponses = responses.filter(response => response !== null);
+        if (validResponses.length == 0) {
+            throw { message: '106 - No valid responses from any proxies.' }
+        }
+
+        let averageTimestamp = 0;
+        let averagePairBid = 0;
+        let averagePairAsk = 0;
+        let averageConfidence = 0;
+
+        for (const response of validResponses) {
+            const { timestamp, floatPairBid, floatPairAsk, floatConfidence } = response.data;
+
+            averageTimestamp += timestamp;
+            averagePairBid += floatPairBid;
+            averagePairAsk += floatPairAsk;
+            averageConfidence += floatConfidence;
+        }
+
+        averageTimestamp /= validResponses.length;
+        averagePairBid /= validResponses.length;
+        averagePairAsk /= validResponses.length;
+        averageConfidence /= validResponses.length;
+
+        let closestDistance = Infinity;
+        let closestResponse = null;
+
+        for (const response of validResponses) {
+            const { timestamp, floatPairBid, floatPairAsk, floatConfidence } = response.data;
+
+            const distance = Math.abs(timestamp - averageTimestamp) +
+                Math.abs(floatPairBid - averagePairBid) +
+                Math.abs(floatPairAsk - averagePairAsk) +
+                Math.abs(floatConfidence - averageConfidence);
+
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestResponse = response.data;
+            }
+        }
+
+        return closestResponse;
     },
 
     convertToBytes32: function (str) {
