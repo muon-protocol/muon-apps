@@ -52,7 +52,7 @@ module.exports = {
               id
               user
               amountAsUser
-              day
+              epoch
             } 
         }`
 
@@ -66,7 +66,7 @@ module.exports = {
               id
               user
               amountAsUser
-              day
+              epoch
             } 
         }`
 
@@ -99,7 +99,7 @@ module.exports = {
                     epoch
                 } = params
 
-                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
+                if (parseInt(epoch) < 0) throw { message: 'NEGATIVE_WEEK' }
 
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
                 const { userVolume, totalVolume } = await this.getWeeklyVolume(user, epoch, subgraphEndpoint)
