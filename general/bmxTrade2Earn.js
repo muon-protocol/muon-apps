@@ -41,22 +41,32 @@ module.exports = {
     },
 
 
-    getDailyVolume: async function (user, pair, day, subgraphEndpoint) {
+    getWeeklyVolume: async function (user, epoch, subgraphEndpoint) {
         const totalQuery = `{
-            totalVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "0x0000000000000000000000000000000000000000", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
+            totalVolume: weeklyGeneratedVolumes(
+              where:{
+                epoch: ${epoch},
+                user: "0x0000000000000000000000000000000000000000"
+              }
+            ) {
               id
               user
               amountAsUser
-              day
+              epoch
             } 
         }`
 
         const userQuery = `{
-            userVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "${user.toLowerCase()}", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
+            userVolume: weeklyGeneratedVolumes(
+              where:{
+                epoch: ${epoch},
+                user: "${user.toLowerCase()}"
+              }
+            ) {
               id
               user
               amountAsUser
-              day
+              epoch
             } 
         }`
 
@@ -86,20 +96,18 @@ module.exports = {
                 let {
                     projectId,
                     user,
-                    pair,
-                    day
+                    epoch
                 } = params
 
-                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
+                if (parseInt(epoch) < 0) throw { message: 'NEGATIVE_WEEK' }
 
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
-                const { userVolume, totalVolume } = await this.getDailyVolume(user, pair, day, subgraphEndpoint)
+                const { userVolume, totalVolume } = await this.getWeeklyVolume(user, epoch, subgraphEndpoint)
 
                 return {
                     projectId,
                     user,
-                    pair,
-                    day,
+                    epoch,
                     userVolume,
                     totalVolume,
                 }
@@ -124,8 +132,7 @@ module.exports = {
                 let {
                     projectId,
                     user,
-                    pair,
-                    day,
+                    epoch,
                     userVolume,
                     totalVolume,
                 } = result
@@ -138,8 +145,7 @@ module.exports = {
                 return [
                     { type: 'bytes32', value: projectId },
                     { type: 'address', value: user },
-                    { type: 'address', value: pair },
-                    { type: 'uint256', value: day },
+                    { type: 'uint256', value: epoch },
                     { type: 'uint256', value: request.data.result.userVolume },
                     { type: 'uint256', value: request.data.result.totalVolume },
                     { type: 'uint256', value: request.data.timestamp },
