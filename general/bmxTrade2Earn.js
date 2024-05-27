@@ -41,33 +41,36 @@ module.exports = {
     },
 
 
-    getWeeklyVolume: async function (user, epoch, subgraphEndpoint) {
+    getWeeklyVolume: async function (user, epoch, n, subgraphEndpoint) {
         const totalQuery = `{
-            totalVolume: weeklyGeneratedVolumes(
-              where:{
-                epoch: ${epoch},
-                user: "0x0000000000000000000000000000000000000000"
-              }
-            ) {
-              id
-              user
-              amountAsUser
-              epoch
-            } 
+          totalVolume: weeklyGeneratedVolumes(
+            where: {
+              epoch: ${epoch},
+              user_not: "0x0000000000000000000000000000000000000000"
+            }
+            first: ${n}
+            orderBy: amountAsUser
+            orderDirection: desc
+          ) {
+            id
+            user
+            amountAsUser
+            epoch
+          }
         }`
 
         const userQuery = `{
-            userVolume: weeklyGeneratedVolumes(
-              where:{
-                epoch: ${epoch},
-                user: "${user.toLowerCase()}"
-              }
-            ) {
-              id
-              user
-              amountAsUser
-              epoch
-            } 
+          userVolume: weeklyGeneratedVolumes(
+            where:{
+              epoch: ${epoch},
+              user: "${user.toLowerCase()}"
+            }
+          ) {
+            id
+            user
+            amountAsUser
+            epoch
+          } 
         }`
 
         const totalData = (await this.postQuery(totalQuery, subgraphEndpoint)).totalVolume
@@ -76,7 +79,12 @@ module.exports = {
         if (userData.length == 0) throw { message: `NO_RECORD_FOR_USER` }
         if (totalData.length == 0) throw { message: `NO_RECORD_FOR_PLATFORM` }
 
-        const totalVolume = totalData[0].amountAsUser
+        let totalSum = new BN(0)
+        totalData.forEach(record => {
+            totalSum = totalSum.add(new BN(record.amountAsUser))
+        })
+
+        const totalVolume = totalSum.toString()
         const userVolume = userData[0].amountAsUser
 
         return {
@@ -96,18 +104,20 @@ module.exports = {
                 let {
                     projectId,
                     user,
-                    epoch
+                    epoch,
+                    n
                 } = params
 
                 if (parseInt(epoch) < 0) throw { message: 'NEGATIVE_WEEK' }
 
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
-                const { userVolume, totalVolume } = await this.getWeeklyVolume(user, epoch, subgraphEndpoint)
+                const { userVolume, totalVolume } = await this.getWeeklyVolume(user, epoch, n, subgraphEndpoint)
 
                 return {
                     projectId,
                     user,
                     epoch,
+                    n,
                     userVolume,
                     totalVolume,
                 }
@@ -125,7 +135,7 @@ module.exports = {
      * should be verified on chain.
      */
     signParams: function (request, result) {
-        let { method } = request;
+        let { method } = request
         switch (method) {
 
             case 'userVolume': {
@@ -133,6 +143,7 @@ module.exports = {
                     projectId,
                     user,
                     epoch,
+                    n,
                     userVolume,
                     totalVolume,
                 } = result
@@ -146,6 +157,7 @@ module.exports = {
                     { type: 'bytes32', value: projectId },
                     { type: 'address', value: user },
                     { type: 'uint256', value: epoch },
+                    { type: 'uint256', value: n },
                     { type: 'uint256', value: request.data.result.userVolume },
                     { type: 'uint256', value: request.data.result.totalVolume },
                     { type: 'uint256', value: request.data.timestamp },
