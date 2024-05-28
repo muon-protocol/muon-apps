@@ -34,58 +34,55 @@ module.exports = {
         return data.data
     },
 
-
     fetchProject: async function (projectId) {
         const { dibs, chainId, subgraphEndpoint } = await ethCall(DibsRepository, 'projects', [projectId], DIBS_REPO_ABI, 8453)
         return { dibs, chainId, subgraphEndpoint }
     },
 
+    getWeeklyLeaderboard: async function (user, epoch, n, subgraphEndpoint) {
+        let data = []
+        let stepSize = 1000
+        if (parseInt(n) < stepSize) {stepSize = parseInt(n)}
+        let steps = Math.ceil(n / stepSize);
 
-    getWeeklyVolume: async function (user, epoch, n, subgraphEndpoint) {
-        const totalQuery = `{
-          totalVolume: weeklyGeneratedVolumes(
-            where: {
-              epoch: ${epoch},
-              user_not: "0x0000000000000000000000000000000000000000"
-            }
-            first: ${n}
-            orderBy: amountAsUser
-            orderDirection: desc
-          ) {
-            id
-            user
-            amountAsUser
-            epoch
-          }
-        }`
+        for (let i = 0; i < steps; i++) {
+            const query = `
+            {
+              leaderboardVolume: weeklyGeneratedVolumes(
+                where: {
+                  epoch: ${epoch},
+                  user_not: "0x0000000000000000000000000000000000000000"
+                }
+                skip: ${i*stepSize}
+                first: ${stepSize}
+                orderBy: amountAsUser
+                orderDirection: desc
+              ) {
+                id
+                user
+                amountAsUser
+                epoch
+              }
+            }`
+            const page = (await this.postQuery(query, subgraphEndpoint)).leaderboardVolume
+            if (page.length === 0) break
+            data.push(...page)
+        }
 
-        const userQuery = `{
-          userVolume: weeklyGeneratedVolumes(
-            where:{
-              epoch: ${epoch},
-              user: "${user.toLowerCase()}"
-            }
-          ) {
-            id
-            user
-            amountAsUser
-            epoch
-          } 
-        }`
+        if (data.length === 0) throw {message: `no record for platform`}
+        data.splice(n);  // truncate records added outside leaderboard
 
-        const totalData = (await this.postQuery(totalQuery, subgraphEndpoint)).totalVolume
-        const userData = (await this.postQuery(userQuery, subgraphEndpoint)).userVolume
-
-        if (userData.length == 0) throw { message: `NO_RECORD_FOR_USER` }
-        if (totalData.length == 0) throw { message: `NO_RECORD_FOR_PLATFORM` }
-
+        let userSum = new BN(0)
         let totalSum = new BN(0)
-        totalData.forEach(record => {
-            totalSum = totalSum.add(new BN(record.amountAsUser))
+        data.forEach(position => {
+            if (position.user === user.toLowerCase()) {
+                userSum = new BN(position.amountAsUser)
+            }
+            totalSum = totalSum.add(new BN(position.amountAsUser))
         })
 
+        const userVolume = userSum.toString()
         const totalVolume = totalSum.toString()
-        const userVolume = userData[0].amountAsUser
 
         return {
             userVolume,
@@ -108,10 +105,11 @@ module.exports = {
                     n
                 } = params
 
-                if (parseInt(epoch) < 0) throw { message: 'NEGATIVE_WEEK' }
+                if (parseInt(epoch) < 0) throw {message: 'negative epoch'}
+                if (parseInt(n) < 1) throw {message: 'n must be >0'}
 
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
-                const { userVolume, totalVolume } = await this.getWeeklyVolume(user, epoch, n, subgraphEndpoint)
+                const { userVolume, totalVolume } = await this.getWeeklyLeaderboard(user, epoch, n, subgraphEndpoint)
 
                 return {
                     projectId,
