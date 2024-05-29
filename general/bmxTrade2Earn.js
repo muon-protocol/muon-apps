@@ -9,7 +9,7 @@ const SCALE = scaleUp('1')
 
 module.exports = {
     APP_NAME: 'bmxTrade2Earn',
-    useFrost: true,
+    useFrost: false,
 
     isToleranceOk: function (amount, expectedAmount, validTolerance) {
         let diff = new BN(amount).sub(new BN(expectedAmount)).abs()
