@@ -58,8 +58,8 @@ const ABI_JOBS = [
 ]
 
 const DVNs = {
-  sepolia: "0x089aFcedF3A696D51B7E0212d52737527Dd34A3e",
-  bsctest: "0x0a780f9ba1c6e848AE3147b7e329abFa5E470BA5",
+  sepolia: "0x5A94Ab1D4dc5A65E94143929d4E89C2FEF3c2fF2",
+  bsctest: "0xfb03bFd0B29CF5e11780139A00C23fa1Fe96b07b",
 }
 
 module.exports = {
