@@ -9,8 +9,8 @@ const PionerV1App = {
         let { method, data: { params = {} } } = request;
         switch (method) {
             case 'price':
-                const { requestAsset1, requestAsset2, requestPairBid, requestPairAsk, requestConfidence, requestSignTime, requestPrecision, maxTimestampDiff } = params;
-                const prices = await this.makeApiCalls(maxTimestampDiff, requestPrecision, requestAsset1, requestAsset2);
+                const { requestUuid, requestAsset1, requestAsset2, requestPairBid, requestPairAsk, requestConfidence, requestSignTime, requestPrecision, requestConfPrecision, maxTimestampDiff } = params;
+                const prices = await this.makeApiCalls(requestUuid, requestAsset1, requestAsset2, requestPrecision, requestConfPrecision, maxTimestampDiff);
 
                 return {
                     requestAsset1: this.convertToBytes32(requestAsset1),
@@ -27,7 +27,7 @@ const PionerV1App = {
                 };
 
             default:
-                throw { message: `101 - Unknown method ${params}` }
+                throw { message: `101 - Unknown method ${params.method}` }
         }
     },
 
@@ -72,7 +72,7 @@ const PionerV1App = {
         }
     },
 
-    makeApiCalls: async function (maxTimestampDiff, abPrecision, asset1, asset2) {
+    makeApiCalls: async function (uuid, asset1, asset2, abPrecision, confPrecision, maxTimestampDiff) {
         const proxyVars = process.env.APPS_PIONERV1_PROXIES;
         const proxies = JSON.parse(proxyVars);
 
@@ -82,7 +82,7 @@ const PionerV1App = {
             const address = proxies[i].address;
             const key = proxies[i].key;
 
-            const apiUrl = `${address}${key}&a=${asset1}&b=${asset2}&abPrecision=${abPrecision}&confPrecision=${abPrecision}&maxTimestampDiff=${maxTimestampDiff}`;
+            const apiUrl = `${address}${key}&uuid=${uuid}&a=${asset1}&b=${asset2}&abPrecision=${abPrecision}&confPrecision=${confPrecision}&maxTimestampDiff=${maxTimestampDiff}`;
 
             responsePromises.push(axios.get(apiUrl).then(response => {
                 if (response.status === 200) {
@@ -102,7 +102,7 @@ const PionerV1App = {
                     return null;
                 }
             }).catch(error => {
-                console.error(`Error with Proxy : ${error.message}. Url ${apiUrl} :`);
+                console.error(`Error with Proxy : ${error.message}. Url ${apiUrl} :`, error);
                 return null;
             }));
         }
