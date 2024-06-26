@@ -5,7 +5,7 @@ class AccountManager {
     static PERP_MANAGER_ABI = [{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToTradingCompetitionAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]
     static ACCOUNT_MANAGER_ABI = [{"inputs":[],"name":"getWeightsLength","outputs":[{"internalType":"uint256","name":"length","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
-    static perpManagerAddress = "0xE5Ccf697Efa772De24Cbd256e6d401B5872645c0"
+    static perpManagerAddress = "0xae47229E279f85f1006B86aFf60Dc6115ACF79bb"
     static defaultChainId = 56
 
     static async getAccountManager(tcId) {
