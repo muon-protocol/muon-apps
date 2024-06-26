@@ -116,4 +116,4 @@ const Vibe = {
   },
 };
 
-module.exports = Referral;
+module.exports = Vibe;
