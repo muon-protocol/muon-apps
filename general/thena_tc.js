@@ -28,7 +28,7 @@ class AccountManager {
 
 module.exports  = {
     APP_NAME: 'thena_tc',
-    useFrost: true,
+    useFrost: false,
 
 
     postQuery: async function (query, subgraphEndpoint) {
