@@ -5,7 +5,7 @@ class AccountManager {
     static PERP_MANAGER_ABI = [{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToTradingCompetitionAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]
     static ACCOUNT_MANAGER_ABI = [{"inputs":[],"name":"getWeightsLength","outputs":[{"internalType":"uint256","name":"length","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
-    static perpManagerAddress = "0xae47229E279f85f1006B86aFf60Dc6115ACF79bb"
+    static perpManagerAddress = "0xc90992b9aE19ec04b9AA9878A510c2ae3203aEe7"
     static defaultChainId = 56
 
     static async getAccountManager(tcId) {
@@ -26,8 +26,10 @@ class AccountManager {
 }
 
 
-const ThenaTCApp = {
+module.exports  = {
     APP_NAME: 'thena_tc',
+    useFrost: true,
+
 
     postQuery: async function (query, subgraphEndpoint) {
         const result = await axios.post(subgraphEndpoint, {
@@ -127,11 +129,6 @@ const ThenaTCApp = {
 
         let { owner, tcId } = params
 
-        let result = {
-            owner,
-            tcId,
-        }
-
         switch (method) {
             case 'position': {
                 // gets required info
@@ -140,7 +137,12 @@ const ThenaTCApp = {
                     tiecounter
                 } = await this._info(owner, tcId);
 
-                return Object.assign(result, { position, tiecounter })
+                return {
+                    owner,
+                    tcId,
+                    position,
+                    tiecounter
+                }
             }
             default:
                 throw { message: `invalid method ${method}` }
@@ -148,21 +150,14 @@ const ThenaTCApp = {
     },
 
     signParams: function (request, result) {
-        const {
-            owner,
-            tcId,
-        } = result;
+        let { method } = request;
 
-        const baseResult = [
-            { type: 'address', value: owner },
-            { type: 'uint256', value: tcId },
-        ]
-
-        switch (request.method) {
+        switch (method) {
             case 'position': {
-                const { position, tiecounter } = result;
+                let { owner, tcId, position, tiecounter} = result
                 return [
-                    ...baseResult,
+                    { type: 'address', value: owner },
+                    { type: 'uint256', value: tcId },
                     { type: 'uint256', value: position },
                     { type: 'uint256', value: tiecounter },
                 ]
@@ -173,4 +168,3 @@ const ThenaTCApp = {
     }
 }
 
-module.exports = ThenaTCApp
