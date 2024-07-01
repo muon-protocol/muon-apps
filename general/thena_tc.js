@@ -31,7 +31,7 @@ module.exports  = {
     },
 
     getWeightsLen: async function (tcId) {
-        const tc_address = await _getTradingCompetitionAddress(tcId);
+        const tc_address = await this._getTradingCompetitionAddress(tcId);
         const weightsLen = await ethCall(tc_address, 'getWeightsLength', [], ACCOUNT_MANAGER_ABI, defaultChainId);
         return weightsLen;
     },
