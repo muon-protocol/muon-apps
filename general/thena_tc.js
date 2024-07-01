@@ -26,7 +26,7 @@ module.exports  = {
     },
 
     _getTradingCompetitionAddress: async function (tcId) {
-        const { tradingCompetition } = await ethCall(perpManagerAddress, 'idToTradingCompetitionAddress', [tcId], PERP_MANAGER_ABI, defaultChainId);
+        const tradingCompetition = await ethCall(perpManagerAddress, 'idToTradingCompetitionAddress', [tcId], PERP_MANAGER_ABI, defaultChainId);
         return tradingCompetition;
     },
 
@@ -105,7 +105,7 @@ module.exports  = {
         // gets user info from subgraph
         const { participants } = await this.getInfo(tcId);
         // find position
-        const { position, tiecounter } = await this.getPositionAndTieCounter(participants, owner, tcId)
+        const { position, tiecounter } = await this.getPositionAndTieCounter(participants.participants, owner, tcId)
 
         // returns outputs
         return {
@@ -157,3 +157,4 @@ module.exports  = {
         }
     }
 }
+
