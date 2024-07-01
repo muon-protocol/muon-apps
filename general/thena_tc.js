@@ -38,7 +38,7 @@ module.exports  = {
 
     getPositionAndTieCounter: async function (participants, owner, tcId) {
 
-        const weightslen = await getWeightsLen(tcId);
+        const weightslen = await this.getWeightsLen(tcId);
 
         // Find all valid participants
         const validParticipants = participants.filter(participants => participants.isValid && participants.isValidDeallocate)
