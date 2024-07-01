@@ -1,30 +1,10 @@
-const { ethCall, axios, BN } = MuonAppUtils
+const { ethCall, axios } = MuonAppUtils
 
+const PERP_MANAGER_ABI = [{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToTradingCompetitionAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]
+const ACCOUNT_MANAGER_ABI = [{"inputs":[],"name":"getWeightsLength","outputs":[{"internalType":"uint256","name":"length","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
-class AccountManager {
-    static PERP_MANAGER_ABI = [{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToTradingCompetitionAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]
-    static ACCOUNT_MANAGER_ABI = [{"inputs":[],"name":"getWeightsLength","outputs":[{"internalType":"uint256","name":"length","type":"uint256"}],"stateMutability":"view","type":"function"}];
-
-    static perpManagerAddress = "0xc90992b9aE19ec04b9AA9878A510c2ae3203aEe7"
-    static defaultChainId = 56
-
-    static async getAccountManager(tcId) {
-        const { tradingCompetition } = await ethCall(AccountManager.perpManagerAddress, 'idToTradingCompetitionAddress', [tcId], AccountManager.PERP_MANAGER_ABI, AccountManager.defaultChainId);
-        return tradingCompetition;
-    }
-
-    constructor(address, tcId) {
-        this.address = address;
-        this.tcId = tcId;
-    }
-
-    async getWeightsLen() {
-        const weightsLen = await ethCall(this.address, 'getWeightsLength', [], AccountManager.ACCOUNT_MANAGER_ABI, AccountManager.defaultChainId);
-        return weightsLen;
-    }
-
-}
-
+const perpManagerAddress = "0xc90992b9aE19ec04b9AA9878A510c2ae3203aEe7"
+const defaultChainId = 56
 
 module.exports  = {
     APP_NAME: 'thena_tc',
@@ -45,10 +25,20 @@ module.exports  = {
         return data.data
     },
 
+    _getTradingCompetitionAddress: async function (tcId) {
+        const { tradingCompetition } = await ethCall(perpManagerAddress, 'idToTradingCompetitionAddress', [tcId], PERP_MANAGER_ABI, defaultChainId);
+        return tradingCompetition;
+    },
+
+    getWeightsLen: async function (tcId) {
+        const tc_address = await _getTradingCompetitionAddress(tcId);
+        const weightsLen = await ethCall(tc_address, 'getWeightsLength', [], ACCOUNT_MANAGER_ABI, defaultChainId);
+        return weightsLen;
+    },
+
     getPositionAndTieCounter: async function (participants, owner, tcId) {
 
-        const accountManager = new AccountManager(await AccountManager.getAccountManager(tcId), tcId);
-        const weightslen = await accountManager.getWeightsLen();
+        const weightslen = await getWeightsLen(tcId);
 
         // Find all valid participants
         const validParticipants = participants.filter(participants => participants.isValid && participants.isValidDeallocate)
@@ -115,7 +105,7 @@ module.exports  = {
         // gets user info from subgraph
         const { participants } = await this.getInfo(tcId);
         // find position
-        const { position, tiecounter } = await this.getPositionAndTieCounter(participants, owner, tcId)
+        const { position, tiecounter } = await this.getPositionAndTieCounter(participants.participants, owner, tcId)
 
         // returns outputs
         return {
