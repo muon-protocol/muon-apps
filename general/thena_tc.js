@@ -105,7 +105,7 @@ module.exports  = {
         // gets user info from subgraph
         const { participants } = await this.getInfo(tcId);
         // find position
-        const { position, tiecounter } = await this.getPositionAndTieCounter(participants.participants, owner, tcId)
+        const { position, tiecounter } = await this.getPositionAndTieCounter(participants, owner, tcId)
 
         // returns outputs
         return {
