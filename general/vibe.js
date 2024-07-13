@@ -22,6 +22,7 @@ const Vibe = {
       dailyUserHistories(where: {activeNftId: "${activeNftId}", day_lte: "${day_lte}", account: "${account}"}) {
         day
         activeNftId
+        referrerNftId
         platformFeePaid
         timestamp
       }
@@ -69,7 +70,7 @@ const Vibe = {
         record.volume,
         volumeRakebackTiers
       );
-      if (tier) {
+      if (tier && record.referrerNftId !== "0") {
         const platformFeePaid = new BN(record.platformFeePaid);
         const rakebackRatio = new BN(tier.rakebackRatio);
         const calculatedRakeback = platformFeePaid.mul(rakebackRatio).div(SCALE);
@@ -84,12 +85,10 @@ const Vibe = {
       method,
       data: { params = {} },
     } = request;
-    let { nftId, account } = params;
+    let { nftId, account, timestamp } = params;
     switch (method) {
       case "claim":
-        const timestamp = Math.floor(Date.now() / 1000);
         const lastDay = Math.floor(timestamp / 86400);
-
         const amount = (
           await this.calculateSum(nftId, timestamp, account)
         ).toString();
