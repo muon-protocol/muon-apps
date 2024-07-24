@@ -47,6 +47,11 @@ const ABI_JOBS = [
         type: "address"
       },
       {
+        internalType: "address",
+        name: "receiver",
+        type: "address"
+      },
+      {
         internalType: "bytes",
         name: "options",
         type: "bytes"
@@ -58,8 +63,8 @@ const ABI_JOBS = [
 ]
 
 const DVNs = {
-  sepolia: "0x5A94Ab1D4dc5A65E94143929d4E89C2FEF3c2fF2",
-  bsctest: "0xfb03bFd0B29CF5e11780139A00C23fa1Fe96b07b",
+  sepolia: "0x5bC4E9c3Ba142611AA0EF98a66B3fd3E7e5ebe2a",
+  bsctest: "0x9d95ebe060750440a0c335E59c1620C0d52256F5",
 }
 
 module.exports = {
@@ -88,7 +93,7 @@ module.exports = {
           ABI_JOBS,
           network
         )
-        let { srcEid, dstEid, packetHeader, payloadHash, confirmations } = result
+        let { srcEid, dstEid, packetHeader, payloadHash, confirmations, receiver } = result
         return {
           srcEid: srcEid.toString(),
           dstEid: dstEid.toString(),
@@ -96,6 +101,7 @@ module.exports = {
           packetHeader: packetHeader.toString(),
           payloadHash: payloadHash.toString(),
           confirmations: confirmations.toString(),
+          receiver: receiver.toString()
         }
       default:
         throw { message: `Unknown method ${method}` }
@@ -107,7 +113,7 @@ module.exports = {
 
     switch (method) {
       case 'verify':
-        let { srcEid, dstEid, jobId, packetHeader, payloadHash, confirmations } = result
+        let { srcEid, dstEid, jobId, packetHeader, payloadHash, confirmations, receiver } = result
 
         return [
           { type: 'uint32', value: srcEid },
@@ -116,6 +122,7 @@ module.exports = {
           { type: 'bytes', value: packetHeader },
           { type: 'bytes', value: payloadHash },
           { type: 'uint64', value: confirmations },
+          { type: 'address', value: receiver }
         ]
       default:
         throw { message: `Unknown method: ${method}` }
