@@ -89,7 +89,7 @@ module.exports = {
         let result = await ethCall(
           contractAddress,
           'jobs',
-          jobId,
+          [jobId],
           ABI_JOBS,
           network
         )
