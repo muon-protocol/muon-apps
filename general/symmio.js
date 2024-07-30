@@ -509,7 +509,8 @@ async function getPriceRange(symmio, symbolId, t0, t1, chainId) {
 
 module.exports = {
     APP_NAME: "symmio",
-
+    useFrost: true,
+    
     onRequest: async function (request) {
         let {
             method,
