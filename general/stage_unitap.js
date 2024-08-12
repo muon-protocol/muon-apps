@@ -10,6 +10,7 @@ const PRIZE_TAP_RAFFLE = [{ "inputs": [{ "internalType": "uint256", "name": "raf
 
 const StageUnitapApp = {
     APP_NAME: 'stage_unitap',
+    useFrost: true,
 
     getEntryDetail: async function (raffleEntryId) {
         const url = `https://stage.unitap.app/api/prizetap/raffle-enrollment/detail/${raffleEntryId}/`
