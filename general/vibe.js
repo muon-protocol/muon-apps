@@ -1,118 +1,134 @@
-const { axios, BN, toBaseUnit } = MuonAppUtils;
-const subgraphUrl =
-  "https://api.studio.thegraph.com/query/62454/vibe_rewarder/version/latest";
-const SCALE = new BN(toBaseUnit('1', '18'))
+const {axios, BN, toBaseUnit} = MuonAppUtils;
+const subgraphUrl = "https://api.studio.thegraph.com/query/62454/vibe_rewarder/version/latest";
 
 const Vibe = {
-  APP_NAME: "vibe",
-  useTss: true,
+    APP_NAME: "vibe", useTss: true,
 
-  postQuery: async function (query) {
-    const {
-      data: { data },
-    } = await axios.post(subgraphUrl, {
-      query: query,
-    });
-    console.log(query);
-    return data;
-  },
+    postQuery: async function (query) {
+        const {
+            data: {data},
+        } = await axios.post(subgraphUrl, {
+            query: query,
+        });
+        return data;
+    },
 
-  getDailyUserHistories: async function (activeNftId, day_lte, account) {
-    const query = `{
-      dailyUserHistories(where: {activeNftId: "${activeNftId}", day_lte: "${day_lte}", account: "${account}"}) {
+    getRakeback4User: async function (activeNftId, day_lte) {
+        const query = `{
+      dailyUserHistories(where: {activeNftId: "${activeNftId}", day_lte: "${day_lte}", referrerNftId_not: "0"}) {
+        userRakebackShare
+        day
+      }
+    }`;
+        const data = await this.postQuery(query);
+        let amount = new BN(0);
+
+        for (let record of data.dailyUserHistories) {
+            let userRakebackShareBN = new BN(record.userRakebackShare);
+            amount = amount.add(userRakebackShareBN);
+        }
+
+        return amount
+    },
+
+    getRakeback4Referrer: async function (referrerNftId, day_lte) {
+        const query = `{
+      dailyUserHistories(where: {referrerNftId: "${referrerNftId}", day_lte: "${day_lte}"}) {
+        userRakebackShare
+        rakeback
         day
         activeNftId
-        referrerNftId
-        platformFeePaid
-        timestamp
       }
     }`;
-    const data = await this.postQuery(query);
-    console.log(data);
-    return data.dailyUserHistories;
-  },
+        const data = await this.postQuery(query);
+        let amount = new BN(0);
 
-  getRackbacks: async function (addedTimestamp_lte) {
-    const query = `{
-      volumeRakebackTiers(where: {addedTimestamp_lte: "${Math.floor(
-        addedTimestamp_lte
-      )}"}, orderBy: maxVolume) {
-        addedTimestamp
-        maxVolume
-        rakebackRatio
-        removedTimestamp
-      }
-    }`;
-    const data = await this.postQuery(query);
-    return data.volumeRakebackTiers;
-  },
+        for (let record of data.dailyUserHistories) {
+            let userRakebackShareBN = new BN(record.userRakebackShare);
+            let rakebackBN = new BN(record.rakeback);
+            amount = amount.add(rakebackBN).sub(userRakebackShareBN);
+        }
 
-  findTier: function (timestamp, volume, volumeRakebackTiers) {
-    return volumeRakebackTiers.find((tier) => {
-      const isWithinTimestamp =
-        tier.addedTimestamp <= timestamp &&
-        (!tier.removedTimestamp || tier.removedTimestamp > timestamp);
-      const isWithinVolume = new BN(volume) <= new BN(tier.maxVolume);
-      return isWithinTimestamp && isWithinVolume;
-    });
-  },
+        return amount;
+    },
 
-  calculateSum: async function (nftId, timestamp, account) {
-    const day = Math.floor(timestamp / 86400);
-    const records = await this.getDailyUserHistories(nftId, day, account);
-    const volumeRakebackTiers = await this.getRackbacks(timestamp);
-    console.log(volumeRakebackTiers);
-    console.log(records);
 
-    return records.reduce((sum, record) => {
-      const tier = this.findTier(
-        record.timestamp,
-        record.volume,
-        volumeRakebackTiers
-      );
-      if (tier && record.referrerNftId !== "0") {
-        const platformFeePaid = new BN(record.platformFeePaid);
-        const rakebackRatio = new BN(tier.rakebackRatio);
-        const calculatedRakeback = platformFeePaid.mul(rakebackRatio).div(SCALE);
-        return sum.add(calculatedRakeback);
-      }
-      return sum;
-    }, new BN(0));
-  },
-
-  onRequest: async function (request) {
-    let {
-      method,
-      data: { params = {} },
-    } = request;
-    let { nftId, account, timestamp } = params;
-    switch (method) {
-      case "claim":
+    onRequest: async function (request) {
+        let {
+            method, data: {params = {}},
+        } = request;
+        let {nftId, timestamp} = params;
         const lastDay = Math.floor(timestamp / 86400);
-        const amount = (
-          await this.calculateSum(nftId, timestamp, account)
-        ).toString();
-        return { nftId, account, amount, lastDay, timestamp };
-      default:
-        throw { message: `invalid method ${method}` };
-    }
-  },
+        let amount;
+        switch (method) {
+            case "claim":
+                let userRakeback = await this.getRakeback4User(nftId, lastDay);
+                amount = userRakeback.toString();
+                console.log(amount)
+                return {nftId, amount, lastDay, timestamp, method};
+            case "referralClaim":
+                let referrerRakbake = await this.getRakeback4Referrer(nftId, lastDay);
+                amount = referrerRakbake.toString();
+                console.log(amount)
+                return {nftId, amount, lastDay, timestamp, method};
+            default:
+                throw {message: `invalid method ${method}`};
+        }
+    },
 
-  signParams: function (request, result) {
-    switch (request.method) {
-      case "claim":
-        let { nftId, account, amount, lastDay, timestamp } = result;
-        return [
-          { name: "nftId", type: "uint256", value: nftId },
-          { name: "account", type: "address", value: account },
-          { name: "amount", type: "uint256", value: amount },
-          { name: "lastDay", type: "uint256", value: lastDay },
-          { name: "timestamp", type: "uint256", value: timestamp },
-        ];
-      default:
-        throw { message: `Unknown method: ${request.method}` };
-    }
-  },
+    signParams: function (request, result) {
+        let {nftId, amount, lastDay, timestamp, method} = result;
+        switch (request.method) {
+            case "claim":
+                return [
+                    {
+                        name: "nftId",
+                        type: "uint256",
+                        value: nftId
+                    }, {
+                        name: "amount",
+                        type: "uint256",
+                        value: amount
+                    }, {
+                        name: "lastDay",
+                        type: "uint256",
+                        value: lastDay
+                    }, {
+                        name: "timestamp",
+                        type: "uint256",
+                        value: timestamp
+                    }, {
+                        name: "method",
+                        type: "string",
+                        value: method
+                    }];
+            case "referralClaim":
+                return [
+                    {
+                        name: "nftId",
+                        type: "uint256",
+                        value: nftId
+                    }, {
+                        name: "amount",
+                        type: "uint256",
+                        value: amount
+                    }, {
+                        name: "lastDay",
+                        type: "uint256",
+                        value: lastDay
+                    }, {
+                        name: "timestamp",
+                        type: "uint256",
+                        value: timestamp
+                    }, {
+                        name: "method",
+                        type: "string",
+                        value: method
+                    },];
+            default:
+                throw {message: `Unknown method: ${request.method}`};
+        }
+    },
 };
 
 module.exports = Vibe;
