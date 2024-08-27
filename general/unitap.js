@@ -127,11 +127,12 @@ const UnitapApp = {
                 } = params
 
                 const { winnersCount } = await this.getWinnersCount(chainId, raffleId, prizetapRaffle)
-                const { randomWords, expirationTime } = await this.getRandomWords(winnersCount)
+                let { randomWords, expirationTime } = await this.getRandomWords(winnersCount)
 
+                randomWords = randomWords.map((val) => val.toString())
                 return {
                     randomWords,
-                    expirationTime,
+                    expirationTime: expirationTime.toString(),
                 }
             }
             case 'claim-token': {
