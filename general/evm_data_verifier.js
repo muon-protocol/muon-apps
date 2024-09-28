@@ -1,6 +1,6 @@
 const { ethGetBlock, ethGetTransaction, ethGetTransactionReceipt, ethCall} = MuonAppUtils
 
-const EVMUtilsApp = {
+const EVMDataVerifierApp = {
     APP_NAME: 'evm_data_verifier',
     useFrost: true,
 
@@ -175,4 +175,4 @@ const EVMUtilsApp = {
     }
 }
 
-module.exports = EVMUtilsApp
+module.exports = EVMDataVerifierApp
