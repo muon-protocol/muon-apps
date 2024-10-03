@@ -81,6 +81,7 @@ const SnapshotApp = {
                 })
 
                 return {
+                    proposalId,
                     result: result.toString()
                 }
             }
@@ -126,10 +127,12 @@ const SnapshotApp = {
         switch (request.method) {
             case 'proposal-result': {
                 let {
+                    proposalId,
                     result: proposalResult,
                 } = result
 
                 return [
+                    { type: 'string', value: proposalId },
                     { type: 'string', value: proposalResult }
                 ]
             }
