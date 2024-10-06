@@ -2,8 +2,8 @@ const { axios } = MuonAppUtils
 
 const SPACE_ID = "pion-network.eth";
 
-const SnapshotApp = {
-    APP_NAME: 'snapshot',
+const FactGPTDisputeApp = {
+    APP_NAME: 'factGPT_dispute',
     useFrost: true,
 
     getProposal: async function (proposalId) {
@@ -73,16 +73,16 @@ const SnapshotApp = {
                     throw { message: "Invalid proposal choices" };
                 }
 
-                let result = 0;
+                let disputePercent = 0;
                 choices.map((choice, i) => {
                     if(choice == "yes") {
-                        result = parseFloat(scores[i] * 100/scores_total).toFixed(2);
+                        disputePercent = scores[i] * 100/scores_total;
                     }
                 })
 
                 return {
                     proposalId,
-                    result: result.toString()
+                    result: (disputePercent > 50).toString()
                 }
             }
             case 'proposal-validation': {
@@ -133,7 +133,7 @@ const SnapshotApp = {
 
                 return [
                     { type: 'string', value: proposalId },
-                    { type: 'string', value: proposalResult }
+                    { type: 'bool', value: proposalResult }
                 ]
             }
             case 'proposal-validation': {
@@ -151,4 +151,4 @@ const SnapshotApp = {
     }
 }
 
-module.exports = SnapshotApp
+module.exports = FactGPTDisputeApp
