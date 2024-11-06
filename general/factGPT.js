@@ -5,7 +5,7 @@ const chatGptModel = "gpt-4-1106-preview";
 const OPENAI_API_KEY = process.env.GPT_API_KEY
 
 const pplxUrl = "https://api.perplexity.ai/chat/completions";
-const PPLX_API_KEY = process.PPLX_API_KEY;
+const PPLX_API_KEY = process.env.PPLX_API_KEY;
 const pplxModel = "llama-3.1-sonar-huge-128k-online";
 
 const GPTApp = {
