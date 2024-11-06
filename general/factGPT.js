@@ -1,24 +1,29 @@
 const { axios } = MuonAppUtils
 
-const gptUrl = 'https://api.openai.com/v1/chat/completions'
+const chatGptUrl = 'https://api.openai.com/v1/chat/completions';
+const chatGptModel = "gpt-4-1106-preview";
 const OPENAI_API_KEY = process.env.GPT_API_KEY
 
-const ChatGPTApp = {
+const pplxUrl = "https://api.perplexity.ai/chat/completions";
+const PPLX_API_KEY = process.PPLX_API_KEY;
+const pplxModel = "llama-3.1-sonar-huge-128k-online";
+
+const GPTApp = {
     APP_NAME: 'factGPT',
 
-    askGPT: async function (question) {
+    askGPT: async function (question, gptUrl, model, apiKey) {
         try {
             const { data: completion } = await axios.post(gptUrl, {
                 messages: [
                     { role: "system", content: "Answer with true or false and don't say anything except these two respnses." },
                     { role: "user", content: question }
                 ],
-                model: "gpt-4-1106-preview",
+                model: model,
             },
                 {
                     headers: {
                         "Content-Type": "application/json",
-                        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+                        "Authorization": `Bearer ${apiKey}`,
                     },
                 })
 
@@ -36,6 +41,8 @@ const ChatGPTApp = {
         }
     },
 
+
+
     onRequest: async function (request) {
         let { method, data: { params } } = request;
         switch (method) {
@@ -44,7 +51,12 @@ const ChatGPTApp = {
                     question,
                 } = params;
 
-                const answer = await this.askGPT(question);
+                const answer = await this.askGPT(
+                    question,
+                    chatGptUrl,
+                    chatGptModel,
+                    OPENAI_API_KEY
+                );
                 console.log('answer', answer)
 
                 return {
@@ -52,6 +64,23 @@ const ChatGPTApp = {
                 }
             }
 
+            case 'verifyRealtime': {
+                let {
+                    question,
+                } = params;
+
+                const answer = await this.askGPT(
+                    question,
+                    pplxUrl,
+                    pplxModel,
+                    PPLX_API_KEY
+                );
+                console.log('answer', answer)
+
+                return {
+                    answer,
+                }
+            }
 
             default:
                 throw { message: `invalid method ${method}` }
@@ -71,6 +100,17 @@ const ChatGPTApp = {
                 ]
             }
 
+            case 'verifyRealtime': {
+
+                let {
+                    answer
+                } = result;
+
+                return [
+                    { type: 'bool', value: answer },
+                ]
+            }
+
 
             default:
                 throw { message: `Unknown method: ${request.method}` }
@@ -78,4 +118,4 @@ const ChatGPTApp = {
     }
 }
 
-module.exports = ChatGPTApp
+module.exports = GPTApp
