@@ -15,8 +15,10 @@ const GPTApp = {
         try {
             const { data: completion } = await axios.post(gptUrl, {
                 messages: [
-                    { role: "system", content: "Answer with true or false and don't say anything except these two respnses." },
-                    { role: "user", content: question }
+                    { role: "system", content: "true/false responses only. No additional words." },
+                    { role: "user", content: question + 
+                        "\ntrue/false responses only. No additional words."
+                    }
                 ],
                 model: model,
             },
@@ -46,7 +48,7 @@ const GPTApp = {
     onRequest: async function (request) {
         let { method, data: { params } } = request;
         switch (method) {
-            case 'verify': {
+            case 'verifyChatGPT': {
                 let {
                     question,
                 } = params;
@@ -64,7 +66,7 @@ const GPTApp = {
                 }
             }
 
-            case 'verifyRealtime': {
+            case 'verify': {
                 let {
                     question,
                 } = params;
