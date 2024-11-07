@@ -17,7 +17,7 @@ const GPTApp = {
                 messages: [
                     { role: "system", content: "true/false responses only. No additional words." },
                     { role: "user", content: question + 
-                        "\n\ntrue/false responses only. No additional words."
+                        "\ntrue/false responses only. No additional words."
                     }
                 ],
                 model: model,
