@@ -32,7 +32,7 @@ const pairsWithSpecificSource = ["BLUEBIRDUSDT", "BNXUSDT", "DEFIUSDT", "BTCDOMU
 const priceUrl = process.env.PRICE_URL;
 const klinesUrl = process.env.KLINES_URL;
 
-const priceSources = JSON.parse(process.env.PRICE_SOURCES);
+const priceSources = JSON.parse(process.env.PRICE_SOURCES || "[]");
 
 const getSorucePrices = {
     binance: getBinancePrices,
