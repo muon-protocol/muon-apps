@@ -1,4 +1,4 @@
-const { axios, BN, toBaseUnit, ethCall, ethGetBlockNumber, Web3, schnorrVerifyWithNonceAddress, soliditySha3, withSpan, MuonAppError } = MuonAppUtils;
+const { axios, BN, toBaseUnit, ethCall, ethGetBlockNumber, Web3, schnorrVerifyWithNonceAddress, soliditySha3, MuonAppError } = MuonAppUtils;
 
 axios.defaults.timeout = 10000;
 const elliptic = require("elliptic");
@@ -39,6 +39,19 @@ const getSorucePrices = {
     kucoin: getKucoinPrices,
     mexc: getMexcPrices,
 };
+
+async function withSpan(spanName, spanType, func, args) {
+    let result, error;
+    // let span = apmAgent.startSpan(spanName, spanType);
+    try {
+        result = await func(...args);
+    } catch (e) {
+        error = e;
+    }
+    // if (span) span.end();
+    if (error) throw error;
+    return result;
+}
 
 async function getBinancePrices() {
     return withSpan(
