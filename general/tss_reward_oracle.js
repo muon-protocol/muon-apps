@@ -113,6 +113,7 @@ module.exports = {
   },
 
   onRequest: async function (request) {
+    return false;
     const {
       method,
       data: { params },
