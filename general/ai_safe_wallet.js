@@ -1,4 +1,4 @@
-const { Web3, soliditySha3, ethCall } = MuonAppUtils
+const { Web3 } = MuonAppUtils
 
 module.exports = {
   APP_NAME: 'ai_safe_wallet',
@@ -24,7 +24,7 @@ module.exports = {
         const web3 = new Web3();
 
         const messageSigner = web3.eth.accounts.recover(
-          soliditySha3(to, value, data, txGas),
+          web3.utils.soliditySha3(to, value, data, txGas),
           executorSign
         );
 
