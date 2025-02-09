@@ -3,7 +3,7 @@ const { Web3 } = MuonAppUtils
 module.exports = {
   APP_NAME: 'ai_safe_wallet',
 
-  EXECUTOR: "0xb57490CDAABEDb450df33EfCdd93079A24ac5Ce5",
+  EXECUTOR: "0x43473CF3B1F0b9A0407405343df6a03AED1d107e",
 
   onRequest: async function (request) {
     let {
@@ -13,18 +13,20 @@ module.exports = {
 
     switch (method) {
       case 'verifyTX':
-        let { 
+        let {
+          chainId, 
           to,
           value,
           data,
           txGas,
+          nonce,
           executorSign
         } = params
 
         const web3 = new Web3();
 
         const messageSigner = web3.eth.accounts.recover(
-          web3.utils.soliditySha3(to, value, data, txGas),
+          web3.utils.soliditySha3(chainId, to, value, data, txGas, nonce),
           executorSign
         );
 
@@ -33,10 +35,12 @@ module.exports = {
         }
 
         return {
+          chainId: chainId.toString(),
           to: to.toString(),
           value: value.toString(),
           data: data.toString(),
-          txGas: txGas.toString()
+          txGas: txGas.toString(),
+          nonce: nonce.toString()
         }
       default:
         throw { message: `Unknown method ${method}` }
@@ -48,18 +52,22 @@ module.exports = {
 
     switch (method) {
       case 'verifyTX':
-        let { 
+        let {
+          chainId,
           to, 
           value, 
           data, 
-          txGas
+          txGas,
+          nonce
         } = result
 
         return [
+          { type: 'uint256', value: chainId },
           { type: 'address', value: to },
           { type: 'uint256', value: value },
           { type: 'bytes', value: data },
           { type: 'uint256', value: txGas },
+          { type: 'uint256', value: nonce },
         ]
       default:
         throw { message: `Unknown method: ${method}` }
