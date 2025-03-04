@@ -6,7 +6,7 @@ const OPENAI_API_KEY = process.env.GPT_API_KEY
 
 const pplxUrl = "https://api.perplexity.ai/chat/completions";
 const PPLX_API_KEY = process.env.PPLX_API_KEY;
-const pplxModel = "llama-3.1-sonar-huge-128k-online";
+const pplxModel = "sonar";
 
 const GPTApp = {
     APP_NAME: 'factGPT',
