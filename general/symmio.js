@@ -13,7 +13,7 @@ const scale = new BN(toBaseUnit("1", 18));
 const ZERO = new BN(0);
 const scaleUp = (value) => new BN(toBaseUnit(String(value), 18));
 
-const ABI = require("./abi.json");
+const ABI = require("./symmio_abi.json");
 
 const UPNL_TOLERANCE = scaleUp("0.001");
 const PRICE_TOLERANCE = scaleUp("0.01");
