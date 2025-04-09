@@ -569,77 +569,77 @@ module.exports = {
 
         switch (method) {
             case "uPnl_A":
-                case "partyA_overview": {
-                    let {partyA, chainId, symmio} = params;
-                    const result = await uPnlPartyA(partyA, chainId, symmio, latestBlockNumber);
-                    delete result.openPositions;
-                    let liquidationId;
-                    if (request.data.result) {
-                        liquidationId = request.data.result.liquidationId;
-                    } else {
-                        liquidationId = new Web3().eth.accounts.create().privateKey;
-                    }
-                    return Object.assign({}, {
-                        chainId, partyA, symmio, liquidationId, latestBlockNumber
-                    }, removeDebugData(result));
+            case "partyA_overview": {
+                let {partyA, chainId, symmio} = params;
+                const result = await uPnlPartyA(partyA, chainId, symmio, latestBlockNumber);
+                delete result.openPositions;
+                let liquidationId;
+                if (request.data.result) {
+                    liquidationId = request.data.result.liquidationId;
+                } else {
+                    liquidationId = new Web3().eth.accounts.create().privateKey;
                 }
-    
-                case "verify": {
-                    let {
-                        deploymentSeed,
-                        signature,
-                        reqId,
-                        nonceAddress,
-                        start,
-                        size,
-                        liquidationId,
-                        symmio,
-                        partyA,
-                        nonce,
-                        uPnl,
-                        loss,
-                        symbolIds,
-                        prices,
-                        timestamp,
-                        chainId,
-                    } = params;
-                    start = parseInt(start);
-                    size = parseInt(size);
-                    symbolIds = JSON.parse(symbolIds);
-                    symbolIds = symbolIds.map((symbolId) => String(symbolId));
-                    prices = JSON.parse(prices);
-                    prices = prices.map((price) => String(price));
-                    const signedParams = [
-                        { name: "appId", type: "uint256", value: request.appId },
-                        { name: "reqId", type: "bytes", value: reqId },
-                        { type: "bytes", value: liquidationId },
-                        { type: "address", value: symmio },
-                        { type: "string", value: "verifyLiquidationSig" },
-                        { type: "address", value: partyA },
-                        { type: "uint256", value: nonce },
-                        { type: "int256", value: uPnl },
-                        { type: "int256", value: loss },
-                        { type: "uint256[]", value: symbolIds },
-                        { type: "uint256[]", value: prices },
-                        { type: "uint256", value: timestamp },
-                        { type: "uint256", value: chainId },
-                    ];
-                    const hash = this.hashAppSignParams(seedRequest, signedParams);
-                    if (!(await this.verify(deploymentSeed, hash, signature, nonceAddress))) throw { message: `Signature Not Verified` };
-    
-                    return {
-                        liquidationId,
-                        symmio,
-                        partyA,
-                        nonce,
-                        uPnl,
-                        loss,
-                        symbolIds: symbolIds.slice(start, start + size),
-                        prices: prices.slice(start, start + size),
-                        timestamp,
-                        chainId,
-                    };
-                }
+                return Object.assign({}, {
+                    chainId, partyA, symmio, liquidationId, latestBlockNumber
+                }, removeDebugData(result));
+            }
+
+            case "verify": {
+                let {
+                    deploymentSeed,
+                    signature,
+                    reqId,
+                    nonceAddress,
+                    start,
+                    size,
+                    liquidationId,
+                    symmio,
+                    partyA,
+                    nonce,
+                    uPnl,
+                    loss,
+                    symbolIds,
+                    prices,
+                    timestamp,
+                    chainId,
+                } = params;
+                start = parseInt(start);
+                size = parseInt(size);
+                symbolIds = JSON.parse(symbolIds);
+                symbolIds = symbolIds.map((symbolId) => String(symbolId));
+                prices = JSON.parse(prices);
+                prices = prices.map((price) => String(price));
+                const signedParams = [
+                    { name: "appId", type: "uint256", value: request.appId },
+                    { name: "reqId", type: "bytes", value: reqId },
+                    { type: "bytes", value: liquidationId },
+                    { type: "address", value: symmio },
+                    { type: "string", value: "verifyLiquidationSig" },
+                    { type: "address", value: partyA },
+                    { type: "uint256", value: nonce },
+                    { type: "int256", value: uPnl },
+                    { type: "int256", value: loss },
+                    { type: "uint256[]", value: symbolIds },
+                    { type: "uint256[]", value: prices },
+                    { type: "uint256", value: timestamp },
+                    { type: "uint256", value: chainId },
+                ];
+                const hash = this.hashAppSignParams(seedRequest, signedParams);
+                if (!(await this.verify(deploymentSeed, hash, signature, nonceAddress))) throw { message: `Signature Not Verified` };
+
+                return {
+                    liquidationId,
+                    symmio,
+                    partyA,
+                    nonce,
+                    uPnl,
+                    loss,
+                    symbolIds: symbolIds.slice(start, start + size),
+                    prices: prices.slice(start, start + size),
+                    timestamp,
+                    chainId,
+                };
+            }
 
             case "uPnl_A_withSymbolPrice": {
                 let {partyA, chainId, symbolId, symmio} = params;
