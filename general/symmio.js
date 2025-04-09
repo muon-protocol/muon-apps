@@ -1,17 +1,28 @@
-const { axios, BN, toBaseUnit, ethCall, ethGetBlockNumber, Web3 } = MuonAppUtils;
-axios.defaults.timeout = 5000;
+const {
+    axios,
+    BN,
+    toBaseUnit,
+    ethCall,
+    ethGetBlockNumber,
+    Web3,
+} = MuonAppUtils;
+
+axios.defaults.timeout = 10000;
 
 const scale = new BN(toBaseUnit("1", 18));
 const ZERO = new BN(0);
 const scaleUp = (value) => new BN(toBaseUnit(String(value), 18));
 
-const ABI = require("./symmio_abi.json");
+const ABI = require("./abi.json");
 
 const UPNL_TOLERANCE = scaleUp("0.001");
 const PRICE_TOLERANCE = scaleUp("0.01");
 const minusOne = new BN(-1);
 
-const priceSources = ["binance"];
+const priceUrl = process.env.PRICE_URL;
+const klinesUrl = process.env.KLINES_URL;
+
+const priceSources = ['binance'];
 
 const getSorucePrices = {
     binance: getBinancePrices,
@@ -19,34 +30,32 @@ const getSorucePrices = {
 
 async function getBinancePrices() {
     // Define the Binance API URL
-    const binanceUrl = "https://fapi.binance.com/fapi/v1/premiumIndex";
-    // Make an HTTP GET request to the Binance API using Axios
-    const { data } = await axios.get(binanceUrl);
+    const binancePricesUrl = priceUrl + "/all_markets";
+
+    let priceData;
+    try {
+        // Make an HTTP GET request to the Binance API using Axios
+        const result = await axios.get(binancePricesUrl);
+        priceData = result.data;
+    } catch (e) {
+        console.log(e);
+        throw new Error("FAILED_TO_GET_BINANCE_PRICES");
+    }
+
+    // Create an empty object to store the prices map
     const pricesMap = {};
-    data.forEach((el) => {
-    pricesMap[el.symbol] = scaleUp(el.markPrice).toString();
+
+    // Iterate over the data received from the API
+    priceData.forEach((el) => {
+        try {
+            // Convert the mark price to a string and store it in the prices map
+            pricesMap[el.symbol] = scaleUp(el.price).toString();
+        } catch (e) {
+        }
     });
+
+    // Return the populated prices map
     return pricesMap;
-}
-
-async function getBinanceMaxLeverages() {
-    const binanceLeveragesUrl = "https://www.binance.com/bapi/futures/v1/friendly/future/common/brackets";
-
-    // Make an HTTP POST request to the Binance API using Axios
-    const { data } = await axios.post(binanceLeveragesUrl, {
-        headers: {
-            accept: "*/*",
-            "Content-Type": "application/json",
-        },
-    });
-
-    const maxLeverages = {};
-    const leverageData = data.data.brackets;
-    leverageData.forEach((el) => {
-        maxLeverages[el.symbol] = el.riskBrackets[0].maxOpenPosLeverage;
-    });
-
-    return maxLeverages;
 }
 
 function isPriceToleranceOk(price, expectedPrice, priceTolerance) {
@@ -59,7 +68,7 @@ function isPriceToleranceOk(price, expectedPrice, priceTolerance) {
 }
 
 function isUpnlToleranceOk(uPnl, expectedUpnl, notionalValueSum, uPnlTolerance) {
-    if (new BN(notionalValueSum).eq(ZERO)) return { isOk: new BN(expectedUpnl).eq(ZERO) };
+    if (new BN(notionalValueSum).eq(ZERO)) return {isOk: new BN(expectedUpnl).eq(ZERO)};
 
     let uPnlDiff = new BN(uPnl).sub(new BN(expectedUpnl)).abs();
     const uPnlDiffInNotionalValue = uPnlDiff.mul(scale).div(new BN(notionalValueSum));
@@ -71,7 +80,7 @@ function isUpnlToleranceOk(uPnl, expectedUpnl, notionalValueSum, uPnlTolerance) 
 
 async function getSymbols(quoteIds, chainId, symmio, blockNumber) {
     const symbols = await ethCall(symmio, "symbolNameByQuoteId", [quoteIds], ABI, chainId, blockNumber);
-    if (symbols.includes("")) throw { message: "Invalid quoteId" };
+    if (symbols.includes("")) throw new Error("Invalid quoteId");
     return symbols;
 }
 
@@ -80,7 +89,7 @@ function checkPrices(symbols, markPrices, maxLeverages) {
     if (priceSources.length == 1) return true;
     for (let symbol of symbols) {
         const expectedPrice = expectedPrices[symbol];
-        if (expectedPrice == undefined) throw { message: "Undefined Binance Price", symbol };
+        if (expectedPrice == undefined) throw new Error(`Undefined Binance Price, data: ${JSON.stringify({symbol})}`);
         let sourcesCount = 0;
         for (let source of priceSources) {
             if (source == "binance") continue;
@@ -92,9 +101,11 @@ function checkPrices(symbols, markPrices, maxLeverages) {
             sourcesCount += 1;
             const priceTolerance = scaleUp(String(1 / maxLeverages[symbol]));
             let priceCheckResult = isPriceToleranceOk(price, expectedPrice, priceTolerance);
-            if (!priceCheckResult.isOk) throw { message: "Corrupted Price", symbol, diff: priceCheckResult.priceDiffPercentage };
+            if (!priceCheckResult.isOk) throw new Error(`Corrupted Price, data: ${JSON.stringify({
+                symbol, diff: priceCheckResult.priceDiffPercentage
+            })}`);
         }
-        if (sourcesCount == 0) throw { message: "Single Source Symbol", symbol };
+        if (sourcesCount == 0) throw new Error(`Single Source Symbol, data: ${JSON.stringify({symbol})}`);
     }
 
     return true;
@@ -105,7 +116,7 @@ async function getPrices(symbols) {
     for (let priceSource of priceSources) {
         promises.push(getSorucePrices[priceSource]());
     }
-    promises.push(getBinanceMaxLeverages());
+    // promises.push(getBinanceMaxLeverages());
 
     let result;
     try {
@@ -113,17 +124,18 @@ async function getPrices(symbols) {
     } catch (e) {
         console.log(e);
         if (e.message) throw e;
-        throw { message: "FAILED_TO_GET_PRICES" };
+        throw new Error("FAILED_TO_GET_PRICES");
     }
     const markPrices = {};
     for (let [i, priceSource] of priceSources.entries()) {
         markPrices[priceSource] = result[i];
     }
-    const maxLeverages = result[result.length - 1];
+    // const maxLeverages = result[result.length - 1];
+    const maxLeverages = {};
 
     checkPrices(symbols, markPrices, maxLeverages);
 
-    return { pricesMap: markPrices["binance"], markPrices, maxLeverages };
+    return {pricesMap: markPrices["binance"], markPrices, maxLeverages};
 }
 
 async function fetchPrices(quoteIds, chainId, symmio, blockNumber) {
@@ -131,18 +143,25 @@ async function fetchPrices(quoteIds, chainId, symmio, blockNumber) {
     const symbols = await getSymbols(quoteIds, chainId, symmio, blockNumber);
 
     // Fetch the latest prices and create a prices map
-    const { pricesMap, markPrices, maxLeverages } = await getPrices(symbols);
-
+    const {pricesMap, markPrices, maxLeverages} = await getPrices(symbols);
     // Create an array of prices by matching symbols with prices in the map
     const prices = createPricesList(symbols, pricesMap);
 
     // Return an object containing the prices array and prices map
-    return { symbols, prices, pricesMap, markPrices, maxLeverages };
+    return {symbols, prices, pricesMap, markPrices, maxLeverages};
 }
 
 function createPricesList(symbols, pricesMap) {
     const prices = [];
-    symbols.forEach((symbol) => prices.push(pricesMap[symbol].toString()));
+    let notFoundPrices = new Set();
+    symbols.forEach((symbol) => {
+        try {
+            prices.push(pricesMap[symbol].toString());
+        } catch (e) {
+            notFoundPrices.add(symbol);
+        }
+    });
+    if (notFoundPrices.size > 0) throw new Error(`PRICE_NOT_FOUND, data: ${JSON.stringify({notFoundPrices: Array.from(notFoundPrices)})}`);
     return prices;
 }
 
@@ -172,23 +191,28 @@ async function calculateUpnl(openPositions, prices) {
     }
 
     // Returns the calculated uPnl and notional value sum
-    return { uPnl, loss, notionalValueSum };
+    return {uPnl, loss, notionalValueSum};
 }
 
 async function getPositionsCount(parties, side, chainId, symmio, blockNumber) {
-    if (side == "A") return await ethCall(symmio, "partyAPositionsCount", [parties.partyA], ABI, chainId, blockNumber);
-    else if (side == "B") return await ethCall(symmio, "partyBPositionsCount", [parties.partyB, parties.partyA], ABI, chainId, blockNumber);
+    if (side == "A") {
+        return await ethCall(symmio, "partyAPositionsCount", [parties.partyA], ABI, chainId, blockNumber);
+    } else if (side == "B") {
+        return await ethCall(symmio, "partyBPositionsCount", [parties.partyB, parties.partyA], ABI, chainId, blockNumber);
+    }
 }
 
 async function getOpenPositions(parties, side, start, size, chainId, symmio, blockNumber) {
-    if (side == "A") return await ethCall(symmio, "getPartyAOpenPositions", [parties.partyA, start, size], ABI, chainId, blockNumber);
-    else if (side == "B")
+    if (side == "A") {
+        return await ethCall(symmio, "getPartyAOpenPositions", [parties.partyA, start, size], ABI, chainId, blockNumber);
+    } else if (side == "B") {
         return await ethCall(symmio, "getPartyBOpenPositions", [parties.partyB, parties.partyA, start, size], ABI, chainId, blockNumber);
+    }
 }
 
 async function fetchOpenPositions(parties, side, chainId, symmio, blockNumber) {
     const positionsCount = new BN(await getPositionsCount(parties, side, chainId, symmio, blockNumber));
-    if (positionsCount.eq(new BN(0))) return { openPositions: [], quoteIds: [] };
+    if (positionsCount.eq(new BN(0))) return {openPositions: [], quoteIds: []};
 
     const size = 50;
     const getsCount = parseInt(positionsCount.div(new BN(size))) + 1;
@@ -196,7 +220,7 @@ async function fetchOpenPositions(parties, side, chainId, symmio, blockNumber) {
     const openPositions = [];
     for (let i = 0; i < getsCount; i++) {
         const start = i * size;
-        openPositions.push(...(await getOpenPositions(parties, side, start, size, chainId, symmio)));
+        openPositions.push(...(await getOpenPositions(parties, side, start, size, chainId, symmio, blockNumber)));
     }
 
     let quoteIds = [];
@@ -212,10 +236,7 @@ async function fetchOpenPositions(parties, side, chainId, symmio, blockNumber) {
     partyBs = Array.from(partyBs);
 
     return {
-        openPositions,
-        quoteIds,
-        symbolIds,
-        partyBs,
+        openPositions, quoteIds, symbolIds, partyBs,
     };
 }
 
@@ -228,7 +249,7 @@ function filterPositions(partyB, mixedOpenPositions) {
             quoteIds.push(String(position.id));
         }
     });
-    return { openPositions, quoteIds };
+    return {openPositions, quoteIds};
 }
 
 async function fetchPartyBsAllocateds(chainId, symmio, partyA, partyBs, blockNumber) {
@@ -238,22 +259,23 @@ async function fetchPartyBsAllocateds(chainId, symmio, partyA, partyBs, blockNum
 
 async function getPartyNonce(parties, side, symmio, chainId, blockNumber) {
     let nonce;
-    if (side == "A") nonce = String(await ethCall(symmio, "nonceOfPartyA", [parties.partyA], ABI, chainId, blockNumber));
-    else if (side == "B") nonce = String(await ethCall(symmio, "nonceOfPartyB", [parties.partyB, parties.partyA], ABI, chainId, blockNumber));
+    if (side == "A") nonce = String(await ethCall(symmio, "nonceOfPartyA", [parties.partyA], ABI, chainId, blockNumber)); else if (side == "B") nonce = String(await ethCall(symmio, "nonceOfPartyB", [parties.partyB, parties.partyA], ABI, chainId, blockNumber));
     return nonce;
 }
 
 async function uPnlPartyA(partyA, chainId, symmio, blockNumber) {
-    // Fetches the open positions and quote IDs for partyA
-    const { openPositions, quoteIds, symbolIds, partyBs } = await fetchOpenPositions({ partyA }, "A", chainId, symmio, blockNumber);
-
     // Retrieves the nonce of partyA
-    const nonce = await getPartyNonce({ partyA }, "A", symmio, chainId, blockNumber);
+    const nonce = await getPartyNonce({partyA}, "A", symmio, chainId, blockNumber);
+
+    // Fetches the open positions and quote IDs for partyA
+    const {
+        openPositions, quoteIds, symbolIds, partyBs
+    } = await fetchOpenPositions({partyA}, "A", chainId, symmio, blockNumber);
 
     // If there are no open positions, return the result with zero uPnl, notional value sum,
     // nonce, quote IDs, open positions, prices map and mark prices (retrieved using the getPrices function)
     if (openPositions.length == 0) {
-        const { pricesMap, markPrices, maxLeverages } = await getPrices([]);
+        const {pricesMap, markPrices, maxLeverages} = await getPrices([]);
         return {
             uPnl: ZERO.toString(),
             loss: ZERO.toString(),
@@ -271,7 +293,9 @@ async function uPnlPartyA(partyA, chainId, symmio, blockNumber) {
     }
 
     // Fetches the prices, prices map and mark prices for the quote IDs
-    const { symbols, prices, pricesMap, markPrices, maxLeverages } = await fetchPrices(quoteIds, chainId, symmio, blockNumber);
+    const {
+        symbols, prices, pricesMap, markPrices, maxLeverages
+    } = await fetchPrices(quoteIds, chainId, symmio, blockNumber);
 
     // Calculates the uPnl and notional value sum using the open positions and prices
     const partyBsAllocateds = await fetchPartyBsAllocateds(chainId, symmio, partyA, partyBs, blockNumber);
@@ -280,9 +304,7 @@ async function uPnlPartyA(partyA, chainId, symmio, blockNumber) {
         const openPositionsPerPartyB = openPositions.filter((position) => position.partyB == partyB);
         const pricesPerPartyB = prices.filter((price, index) => openPositionsPerPartyB.includes(openPositions[index]));
         const {
-            uPnl: uPnlPerPartyB,
-            loss: lossPerPartyB,
-            notionalValueSum: notionalValueSumPerPartyB,
+            uPnl: uPnlPerPartyB, loss: lossPerPartyB, notionalValueSum: notionalValueSumPerPartyB,
         } = await calculateUpnl(openPositionsPerPartyB, pricesPerPartyB);
         uPnl = uPnl.add(BN.min(uPnlPerPartyB, new BN(partyBsAllocateds[i])));
         loss = loss.add(lossPerPartyB);
@@ -305,49 +327,44 @@ async function uPnlPartyA(partyA, chainId, symmio, blockNumber) {
         openPositions,
         markPrices,
         maxLeverages,
+        partyBs,
     };
 }
 
 async function uPnlPartyB(partyB, partyA, chainId, symmio, blockNumber) {
-    // Fetches the open positions and quote IDs for partyB with the associated partyA
-    const { openPositions, quoteIds } = await fetchOpenPositions({ partyB, partyA }, "B", chainId, symmio, blockNumber);
-
     // Retrieves the nonce of partyB for the given partyA
-    const nonce = await getPartyNonce({ partyB, partyA }, "B", symmio, chainId, blockNumber);
+    const nonce = await getPartyNonce({partyB, partyA}, "B", symmio, chainId, blockNumber);
+
+    // Fetches the open positions and quote IDs for partyB with the associated partyA
+    const {openPositions, quoteIds} = await fetchOpenPositions({partyB, partyA}, "B", chainId, symmio, blockNumber);
 
     // If there are no open positions, return the result with zero uPnl, notional value sum,
     // nonce, and quote IDs
     if (openPositions.length == 0) {
         return {
-            uPnl: ZERO.toString(),
-            notionalValueSum: ZERO.toString(),
-            nonce,
-            quoteIds,
+            uPnl: ZERO.toString(), notionalValueSum: ZERO.toString(), nonce, quoteIds,
         };
     }
 
     // Fetches the prices and prices map for the quote IDs
-    const { prices, pricesMap, markPrices } = await fetchPrices(quoteIds, chainId, symmio, blockNumber);
+    const {prices} = await fetchPrices(quoteIds, chainId, symmio, blockNumber);
 
     // Calculates the uPnl and notional value sum using the open positions and prices
-    const { uPnl, notionalValueSum } = await calculateUpnl(openPositions, prices);
+    const {uPnl, notionalValueSum} = await calculateUpnl(openPositions, prices);
 
     // Returns the result with the calculated uPnl (multiplied by -1 to represent partyB's perspective),
     // notional value sum, nonce, prices map, prices, and quote IDs
     return {
-        uPnl: minusOne.mul(uPnl).toString(),
-        notionalValueSum: notionalValueSum.toString(),
-        nonce,
-        pricesMap,
-        prices,
-        quoteIds,
-        markPrices,
+        uPnl: minusOne.mul(uPnl).toString(), notionalValueSum: notionalValueSum.toString(), nonce, prices, quoteIds,
     };
 }
 
 async function uPnlPartyB_FetchedData(partyB, partyA, chainId, pricesMap, mixedOpenPositions, symmio, blockNumber) {
+    // Retrieves the nonce of partyB for the given partyA
+    const nonce = await getPartyNonce({partyB, partyA}, "B", symmio, chainId, blockNumber);
+
     // Filters the mixed open positions to only include positions associated with partyB
-    const { openPositions, quoteIds } = filterPositions(partyB, mixedOpenPositions);
+    const {openPositions, quoteIds} = filterPositions(partyB, mixedOpenPositions);
 
     let uPnl, notionalValueSum, prices;
 
@@ -368,23 +385,16 @@ async function uPnlPartyB_FetchedData(partyB, partyA, chainId, pricesMap, mixedO
         prices = [];
     }
 
-    // Retrieves the nonce of partyB for the given partyA
-    const nonce = await getPartyNonce({ partyB, partyA }, "B", symmio, chainId, blockNumber);
-
     // Returns the result with the calculated uPnl, notional value sum, nonce, prices, and quote IDs
     return {
-        uPnl,
-        notionalValueSum,
-        nonce,
-        prices,
-        quoteIds,
+        uPnl, notionalValueSum, nonce, prices, quoteIds,
     };
 }
 
 async function uPnlParties(partyB, partyA, chainId, symmio, blockNumber) {
     // Checks if partyB and partyA are identical, and throws an error if they are
     if (partyB == partyA) {
-        throw { message: "Identical Parties Error" };
+        throw new Error("Identical Parties Error");
     }
 
     // Calculates the uPnl, nonce, notional value sum, prices map, prices, mark prices and quote IDs for partyA
@@ -402,11 +412,7 @@ async function uPnlParties(partyB, partyA, chainId, symmio, blockNumber) {
 
     // Calculates the uPnl, nonce, notional value sum, prices, and quote IDs for partyB using fetched data
     const {
-        uPnl: uPnlB,
-        nonce: nonceB,
-        notionalValueSum: notionalValueSumB,
-        prices: pricesB,
-        quoteIds: quoteIdsB,
+        uPnl: uPnlB, nonce: nonceB, notionalValueSum: notionalValueSumB, prices: pricesB, quoteIds: quoteIdsB,
     } = await uPnlPartyB_FetchedData(partyB, partyA, chainId, pricesMap, openPositions, symmio, blockNumber);
 
     // Returns the results with adjusted uPnl for partyB, uPnl for partyA, notional value sum for partyB and partyA,
@@ -428,7 +434,42 @@ async function uPnlParties(partyB, partyA, chainId, symmio, blockNumber) {
     };
 }
 
-async function getSymbolsByIds(symmio, symbolIds, chainId, blockNumber = "latest") {
+async function calculatePartiesUpnlForSettle(quoteIds, partyA, symmio, chainId, blockNumber) {
+    let quoteSettlementData = [];
+    // Calculates the uPnl, nonce, notional value sum, prices map, prices, mark prices and quote IDs for partyA
+    const {
+        uPnl: uPnlA, pricesMap, openPositions, partyBs, nonce: nonceA, notionalValueSum: notionalValueSumA,
+    } = await uPnlPartyA(partyA, chainId, symmio, blockNumber);
+
+    let upnlPartyBs = [];
+    let noncePartyBs = [];
+    let notionalValueSumBs = [];
+    let settlementAssociatedPartyBs = new Set();
+    for (let [_, partyB] of partyBs.entries()) {
+        // Calculates the uPnl, nonce, notional value sum, prices, and quote IDs for partyB using fetched data
+        const {
+            uPnl: uPnlB, prices: pricesB, quoteIds: quoteIdsB, nonce: nonceB, notionalValueSum: notionalValueSumB,
+        } = await uPnlPartyB_FetchedData(partyB, partyA, chainId, pricesMap, openPositions, symmio, blockNumber);
+        let partyBAssociatedQuoteIds = [];
+        quoteIdsB.forEach((quoteId, quoteIdIndex) => {
+            if (quoteIds.includes(quoteId)) {
+                partyBAssociatedQuoteIds.push([quoteId, pricesB[quoteIdIndex], settlementAssociatedPartyBs.size]);
+                noncePartyBs.push(nonceB);
+            }
+        });
+        if (partyBAssociatedQuoteIds.length > 0) {
+            quoteSettlementData.push(...partyBAssociatedQuoteIds);
+            upnlPartyBs.push(minusOne.mul(uPnlB).toString());
+            notionalValueSumBs.push(notionalValueSumB.toString());
+            settlementAssociatedPartyBs.add(partyB);
+        }
+    }
+    return {
+        quoteSettlementData, uPnlA, upnlPartyBs, notionalValueSumA, notionalValueSumBs, nonceA, noncePartyBs,
+    };
+}
+
+async function getSymbolsByIds(symmio, symbolIds, chainId, blockNumber) {
     const symbols = await ethCall(symmio, "symbolNameById", [symbolIds], ABI, chainId, blockNumber);
     return symbols;
 }
@@ -436,32 +477,29 @@ async function getSymbolsByIds(symmio, symbolIds, chainId, blockNumber = "latest
 async function getSymbolPrice(symbolId, pricesMap, markPrices, maxLeverages, symmio, chainId, blockNumber) {
     const [symbol] = await getSymbolsByIds(symmio, [symbolId], chainId, blockNumber);
     let price = pricesMap[symbol];
-    if (price == undefined) throw { message: "Invalid symbol" };
+    if (price == undefined) throw new Error(`Invalid symbol, data: ${JSON.stringify({symbol})}`);
     checkPrices([symbol], markPrices, maxLeverages);
     return price;
 }
 
 async function getCandles(symbol, t0, t1) {
-    const klinesUrl = "https://fapi.binance.com/fapi/v1/klines";
+
     const rangeInMinutes = parseInt((t1 - t0) / 60) + 1;
     const params = {
-        symbol,
-        interval: "1m",
-        limit: rangeInMinutes,
-        startTime: t0 * 1000,
-        endTime: t1 * 1000,
+        symbol, interval: "1m", limit: rangeInMinutes, startTime: t0 * 1000, endTime: t1 * 1000,
     };
 
     let candles;
     try {
-        const { data } = await axios.get(klinesUrl, { params });
+        const {data} = await axios.get(klinesUrl, {params});
         candles = data;
-        if (candles.length != rangeInMinutes) throw { message: "INVALID_CANDLES_LENGTH" };
+        if (candles.length != rangeInMinutes) throw new Error("INVALID_CANDLES_LENGTH");
     } catch (e) {
         console.log(e);
-        throw { message: e.message ? e.message : "ERROR_IN_GET_CANDLES" };
+        throw new Error(e.message ? e.message : "ERROR_IN_GET_CANDLES");
     }
     return candles;
+
 }
 
 function parseCandles(candles) {
@@ -471,6 +509,7 @@ function parseCandles(candles) {
     candles.forEach((candle) => {
         let high = candle[2];
         let low = candle[3];
+        let open = candle[1];
         let close = candle[4];
         let volume = candle[5];
 
@@ -478,15 +517,15 @@ function parseCandles(candles) {
         if (low < lowest) lowest = low;
         if (high > highest) highest = high;
 
-        // mean = sigma(close * volume) / sigma(volume)
-        sum += close * volume;
+        // mean = sigma((open + close) / 2 * volume) / sigma(volume)
+        sum += ((parseFloat(open) + parseFloat(close)) / 2) * volume;
         volumeSum += parseFloat(volume);
     });
     let startTime = parseInt(candles[0][0] / 1000);
     let endTime = parseInt(candles[candles.length - 1][0] / 1000);
 
     lowest = scaleUp(lowest);
-    if (lowest.eq(new BN(0))) throw { message: "ZERO_LOWEST" };
+    if (lowest.eq(new BN(0))) throw new Error("ZERO_LOWEST");
 
     let mean = sum / volumeSum;
 
@@ -499,12 +538,23 @@ function parseCandles(candles) {
     };
 }
 
-async function getPriceRange(symmio, symbolId, t0, t1, chainId) {
-    const [symbol] = await getSymbolsByIds(symmio, [symbolId], chainId);
+async function getPriceRange(symmio, symbolId, t0, t1, chainId, blockNumber) {
+    const [symbol] = await getSymbolsByIds(symmio, [symbolId], chainId, blockNumber);
     const candles = await getCandles(symbol, t0, t1);
-    const { lowest, highest, mean, startTime, endTime } = parseCandles(candles);
-    if (startTime != t0 || endTime != t1) throw { message: "BAD_BINANCE_RESPONSE" };
-    return { lowest, highest, mean, startTime, endTime };
+    const {lowest, highest, mean, startTime, endTime} = parseCandles(candles);
+    if (startTime != t0 || endTime != t1) throw new Error("BAD_BINANCE_RESPONSE");
+    return {lowest, highest, mean, startTime, endTime};
+}
+
+async function withSpanGetBlockNumber(chainId) {
+    return await ethGetBlockNumber(chainId);
+}
+
+function removeDebugData(result) {
+    delete result.pricesMap;
+    delete result.markPrices;
+    delete result.maxLeverages;
+    return result;
 }
 
 module.exports = {
@@ -512,164 +562,161 @@ module.exports = {
 
     onRequest: async function (request) {
         let {
-            method,
-            data: { params },
+            method, data: {params},
         } = request;
 
-        let latestBlockNumber = request.data.result ? request.data.result.latestBlockNumber : String(await ethGetBlockNumber(params.chainId));
+        let latestBlockNumber = request.data.result ? request.data.result.latestBlockNumber : String(await withSpanGetBlockNumber(params.chainId));
 
         switch (method) {
             case "uPnl_A":
-            case "partyA_overview": {
-                let { partyA, chainId, symmio } = params;
-                const result = await uPnlPartyA(partyA, chainId, symmio, latestBlockNumber);
-                delete result.openPositions;
-                let liquidationId;
-                if (request.data.result) {
-                    liquidationId = request.data.result.liquidationId;
-                } else {
-                    liquidationId = new Web3().eth.accounts.create().privateKey;
+                case "partyA_overview": {
+                    let {partyA, chainId, symmio} = params;
+                    const result = await uPnlPartyA(partyA, chainId, symmio, latestBlockNumber);
+                    delete result.openPositions;
+                    let liquidationId;
+                    if (request.data.result) {
+                        liquidationId = request.data.result.liquidationId;
+                    } else {
+                        liquidationId = new Web3().eth.accounts.create().privateKey;
+                    }
+                    return Object.assign({}, {
+                        chainId, partyA, symmio, liquidationId, latestBlockNumber
+                    }, removeDebugData(result));
                 }
-                return Object.assign({}, { chainId, partyA, symmio, liquidationId, latestBlockNumber }, result);
-            }
-
-            case "verify": {
-                let {
-                    deploymentSeed,
-                    signature,
-                    reqId,
-                    nonceAddress,
-                    start,
-                    size,
-                    liquidationId,
-                    symmio,
-                    partyA,
-                    nonce,
-                    uPnl,
-                    loss,
-                    symbolIds,
-                    prices,
-                    timestamp,
-                    chainId,
-                } = params;
-                start = parseInt(start);
-                size = parseInt(size);
-                symbolIds = JSON.parse(symbolIds);
-                symbolIds = symbolIds.map((symbolId) => String(symbolId));
-                prices = JSON.parse(prices);
-                prices = prices.map((price) => String(price));
-                const signedParams = [
-                    { name: "appId", type: "uint256", value: request.appId },
-                    { name: "reqId", type: "bytes", value: reqId },
-                    { type: "bytes", value: liquidationId },
-                    { type: "address", value: symmio },
-                    { type: "string", value: "verifyLiquidationSig" },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonce },
-                    { type: "int256", value: uPnl },
-                    { type: "int256", value: loss },
-                    { type: "uint256[]", value: symbolIds },
-                    { type: "uint256[]", value: prices },
-                    { type: "uint256", value: timestamp },
-                    { type: "uint256", value: chainId },
-                ];
-                const hash = this.hashAppSignParams(seedRequest, signedParams);
-                if (!(await this.verify(deploymentSeed, hash, signature, nonceAddress))) throw { message: `Signature Not Verified` };
-
-                return {
-                    liquidationId,
-                    symmio,
-                    partyA,
-                    nonce,
-                    uPnl,
-                    loss,
-                    symbolIds: symbolIds.slice(start, start + size),
-                    prices: prices.slice(start, start + size),
-                    timestamp,
-                    chainId,
-                };
-            }
+    
+                case "verify": {
+                    let {
+                        deploymentSeed,
+                        signature,
+                        reqId,
+                        nonceAddress,
+                        start,
+                        size,
+                        liquidationId,
+                        symmio,
+                        partyA,
+                        nonce,
+                        uPnl,
+                        loss,
+                        symbolIds,
+                        prices,
+                        timestamp,
+                        chainId,
+                    } = params;
+                    start = parseInt(start);
+                    size = parseInt(size);
+                    symbolIds = JSON.parse(symbolIds);
+                    symbolIds = symbolIds.map((symbolId) => String(symbolId));
+                    prices = JSON.parse(prices);
+                    prices = prices.map((price) => String(price));
+                    const signedParams = [
+                        { name: "appId", type: "uint256", value: request.appId },
+                        { name: "reqId", type: "bytes", value: reqId },
+                        { type: "bytes", value: liquidationId },
+                        { type: "address", value: symmio },
+                        { type: "string", value: "verifyLiquidationSig" },
+                        { type: "address", value: partyA },
+                        { type: "uint256", value: nonce },
+                        { type: "int256", value: uPnl },
+                        { type: "int256", value: loss },
+                        { type: "uint256[]", value: symbolIds },
+                        { type: "uint256[]", value: prices },
+                        { type: "uint256", value: timestamp },
+                        { type: "uint256", value: chainId },
+                    ];
+                    const hash = this.hashAppSignParams(seedRequest, signedParams);
+                    if (!(await this.verify(deploymentSeed, hash, signature, nonceAddress))) throw { message: `Signature Not Verified` };
+    
+                    return {
+                        liquidationId,
+                        symmio,
+                        partyA,
+                        nonce,
+                        uPnl,
+                        loss,
+                        symbolIds: symbolIds.slice(start, start + size),
+                        prices: prices.slice(start, start + size),
+                        timestamp,
+                        chainId,
+                    };
+                }
 
             case "uPnl_A_withSymbolPrice": {
-                let { partyA, chainId, symbolId, symmio } = params;
+                let {partyA, chainId, symbolId, symmio} = params;
                 const result = await uPnlPartyA(partyA, chainId, symmio, latestBlockNumber);
-                const price = await getSymbolPrice(
-                    symbolId,
-                    result.pricesMap,
-                    result.markPrices,
-                    result.maxLeverages,
-                    symmio,
-                    chainId,
-                    latestBlockNumber
-                );
+                const price = await getSymbolPrice(symbolId, result.pricesMap, result.markPrices, result.maxLeverages, symmio, chainId, latestBlockNumber);
                 delete result.openPositions;
-                return Object.assign({}, { chainId, partyA, symbolId, price, symmio, latestBlockNumber }, result);
+                return Object.assign({}, {
+                    chainId, partyA, symbolId, price, symmio, latestBlockNumber
+                }, removeDebugData(result));
             }
 
             case "uPnl_B": {
-                let { partyB, partyA, chainId, symmio } = params;
+                let {partyB, partyA, chainId, symmio} = params;
                 const result = await uPnlPartyB(partyB, partyA, chainId, symmio, latestBlockNumber);
-                return Object.assign({}, { chainId, partyB, partyA, symmio, latestBlockNumber }, result);
+                return Object.assign({}, {chainId, partyB, partyA, symmio, latestBlockNumber}, result);
             }
 
             case "uPnl": {
-                let { partyB, partyA, chainId, symmio } = params;
+                let {partyB, partyA, chainId, symmio} = params;
                 const result = await uPnlParties(partyB, partyA, chainId, symmio, latestBlockNumber);
-                return Object.assign({}, { chainId, partyB, partyA, symmio, latestBlockNumber }, result);
+                return Object.assign({}, {chainId, partyB, partyA, symmio, latestBlockNumber}, removeDebugData(result));
             }
-
             case "uPnlWithSymbolPrice": {
-                let { partyB, partyA, chainId, symbolId, symmio } = params;
+                let {partyB, partyA, chainId, symbolId, symmio} = params;
                 const result = await uPnlParties(partyB, partyA, chainId, symmio, latestBlockNumber);
-                const price = await getSymbolPrice(
-                    symbolId,
-                    result.pricesMap,
-                    result.markPrices,
-                    result.maxLeverages,
-                    symmio,
-                    chainId,
-                    latestBlockNumber
-                );
-                return Object.assign({}, { chainId, partyB, partyA, symbolId, price, symmio, latestBlockNumber }, result);
+                const price = await getSymbolPrice(symbolId, result.pricesMap, result.markPrices, result.maxLeverages, symmio, chainId, latestBlockNumber);
+                return Object.assign({}, {
+                    chainId, partyB, partyA, symbolId, price, symmio, latestBlockNumber
+                }, removeDebugData(result, "uPnlWithSymbolPrice"));
             }
 
             case "price": {
-                let { quoteIds, chainId, symmio } = params;
+                let {quoteIds, chainId, symmio} = params;
 
                 quoteIds = JSON.parse(quoteIds);
                 const result = await fetchPrices(quoteIds, chainId, symmio, latestBlockNumber);
-                return Object.assign({}, { chainId, quoteIds, symmio, latestBlockNumber }, result);
+                return Object.assign({}, {chainId, quoteIds, symmio, latestBlockNumber}, removeDebugData(result));
             }
 
             case "priceRange": {
-                let { symmio, partyA, partyB, symbolId, t0, t1, chainId } = params;
+                let {symmio, partyA, partyB, symbolId, t0, chainId} = params;
 
                 t0 = parseInt(t0);
-                t1 = parseInt(t1);
+                if (t0 % 60 != 0) throw new Error("BAD_START_TIME");
+                t1 = t0 + 60;
 
-                if (t0 % 60 != 0 || t1 % 60 != 0) throw { message: "BAD_START_OR_END_TIME" };
-                if (t0 >= t1) throw { message: "START_AFTER_END_TIME" };
 
-                const { lowest, highest, mean, startTime, endTime } = await getPriceRange(symmio, symbolId, t0, t1, chainId);
+                const {
+                    lowest, highest, mean, startTime, endTime
+                } = await getPriceRange(symmio, symbolId, t0, t1, chainId, latestBlockNumber);
                 const result = await uPnlParties(partyB, partyA, chainId, symmio, latestBlockNumber);
-                const price = await getSymbolPrice(
-                    symbolId,
-                    result.pricesMap,
-                    result.markPrices,
-                    result.maxLeverages,
-                    symmio,
+                const price = await getSymbolPrice(symbolId, result.pricesMap, result.markPrices, result.maxLeverages, symmio, chainId, latestBlockNumber);
+                return Object.assign({}, {
                     chainId,
+                    partyB,
+                    partyA,
+                    symmio,
+                    symbolId,
+                    startTime,
+                    endTime,
+                    lowest,
+                    highest,
+                    mean,
+                    price,
                     latestBlockNumber
-                );
-                return Object.assign(
-                    {},
-                    { chainId, partyB, partyA, symmio, symbolId, startTime, endTime, lowest, highest, mean, price, latestBlockNumber },
-                    result
-                );
+                }, removeDebugData(result, "priceRange"));
+            }
+            case "settle_upnl": {
+                let {symmio, partyA, quoteIds, chainId} = params;
+                quoteIds = JSON.parse(quoteIds);
+                quoteIds = quoteIds.map(String);
+                const result = await calculatePartiesUpnlForSettle(quoteIds, partyA, symmio, chainId, latestBlockNumber);
+                return Object.assign({}, {chainId, partyA, symmio, latestBlockNumber}, removeDebugData(result));
             }
 
             default:
-                throw { message: `Unknown method ${method}` };
+                throw new Error(`Unknown method, data: ${JSON.stringify({method})}`);
         }
     },
 
@@ -680,160 +727,134 @@ module.exports = {
      * should be verified on chain.
      */
     signParams: function (request, result) {
-        let { method } = request;
+        let {method} = request;
         switch (method) {
             case "uPnl_A": {
-                let { partyA, uPnl, notionalValueSum, nonce, chainId, symmio } = result;
+                let {partyA, uPnl, notionalValueSum, nonce, chainId, symmio} = result;
 
-                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
+                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonce },
-                    { type: "int256", value: request.data.result.uPnl },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "address", value: partyA}, {
+                    type: "uint256", value: nonce
+                }, {type: "int256", value: request.data.result.uPnl}, {
+                    type: "uint256", value: request.data.timestamp
+                }, {type: "uint256", value: chainId},];
             }
 
             case "partyA_overview": {
-                let { partyA, uPnl, loss, symbolIds, notionalValueSum, nonce, chainId, symmio, liquidationId } = result;
+                let {partyA, uPnl, loss, symbolIds, notionalValueSum, nonce, chainId, symmio, liquidationId} = result;
 
-                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isUpnlToleranceOk(loss, request.data.result.loss, notionalValueSum, UPNL_TOLERANCE).isOk)
-                    throw { message: "Loss Tolerance Error" };
+                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isUpnlToleranceOk(loss, request.data.result.loss, notionalValueSum, UPNL_TOLERANCE).isOk) throw new Error("Loss Tolerance Error");
 
-                return [
-                    { type: "bytes", value: liquidationId },
-                    { type: "address", value: symmio },
-                    { type: "string", value: "verifyLiquidationSig" },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonce },
-                    { type: "int256", value: request.data.result.uPnl },
-                    { type: "int256", value: request.data.result.loss },
-                    { type: "uint256[]", value: symbolIds },
-                    { type: "uint256[]", value: request.data.result.symbolIdsPrices },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "bytes", value: liquidationId}, {type: "address", value: symmio}, {
+                    type: "string", value: "verifyLiquidationSig"
+                }, {type: "address", value: partyA}, {type: "uint256", value: nonce}, {
+                    type: "int256", value: request.data.result.uPnl
+                }, {type: "int256", value: request.data.result.loss}, {
+                    type: "uint256[]", value: symbolIds
+                }, {type: "uint256[]", value: request.data.result.symbolIdsPrices}, {
+                    type: "uint256", value: request.data.timestamp
+                }, {type: "uint256", value: chainId},];
             }
 
             case "verify": {
-                let { liquidationId, partyA, nonce, uPnl, loss, symbolIds, prices, timestamp, chainId, symmio } = result;
+                let {liquidationId, partyA, nonce, uPnl, loss, symbolIds, prices, timestamp, chainId, symmio} = result;
 
-                return [
-                    { type: "bytes", value: liquidationId },
-                    { type: "address", value: symmio },
-                    { type: "string", value: "verifyLiquidationSig" },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonce },
-                    { type: "int256", value: uPnl },
-                    { type: "int256", value: loss },
-                    { type: "uint256[]", value: symbolIds },
-                    { type: "uint256[]", value: prices },
-                    { type: "uint256", value: timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "bytes", value: liquidationId}, {type: "address", value: symmio}, {
+                    type: "string", value: "verifyLiquidationSig"
+                }, {type: "address", value: partyA}, {type: "uint256", value: nonce}, {
+                    type: "int256", value: uPnl
+                }, {type: "int256", value: loss}, {type: "uint256[]", value: symbolIds}, {
+                    type: "uint256[]", value: prices
+                }, {type: "uint256", value: timestamp}, {type: "uint256", value: chainId},];
             }
 
             case "uPnl_A_withSymbolPrice": {
-                let { partyA, uPnl, symbolId, price, notionalValueSum, nonce, chainId, symmio } = result;
+                let {partyA, uPnl, symbolId, price, notionalValueSum, nonce, chainId, symmio} = result;
 
-                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isPriceToleranceOk(price, request.data.result.price, PRICE_TOLERANCE).isOk) throw { message: `Price Tolerance Error` };
+                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isPriceToleranceOk(price, request.data.result.price, PRICE_TOLERANCE).isOk) throw new Error("Price Tolerance Error");
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonce },
-                    { type: "int256", value: request.data.result.uPnl },
-                    { type: "uint256", value: symbolId },
-                    { type: "uint256", value: request.data.result.price },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "address", value: partyA}, {
+                    type: "uint256", value: nonce
+                }, {type: "int256", value: request.data.result.uPnl}, {
+                    type: "uint256", value: symbolId
+                }, {type: "uint256", value: request.data.result.price}, {
+                    type: "uint256", value: request.data.timestamp
+                }, {type: "uint256", value: chainId},];
             }
 
             case "uPnl_B": {
-                let { partyB, partyA, uPnl, notionalValueSum, nonce, chainId, symmio } = result;
+                let {partyB, partyA, uPnl, notionalValueSum, nonce, chainId, symmio} = result;
 
-                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
+                if (!isUpnlToleranceOk(uPnl, request.data.result.uPnl, notionalValueSum, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "address", value: partyB },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonce },
-                    { type: "int256", value: request.data.result.uPnl },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "address", value: partyB}, {
+                    type: "address", value: partyA
+                }, {type: "uint256", value: nonce}, {type: "int256", value: request.data.result.uPnl}, {
+                    type: "uint256", value: request.data.timestamp
+                }, {type: "uint256", value: chainId},];
             }
 
             case "uPnl": {
-                let { partyB, partyA, uPnlB, uPnlA, notionalValueSumB, notionalValueSumA, nonceB, nonceA, chainId, symmio } = result;
+                let {
+                    partyB, partyA, uPnlB, uPnlA, notionalValueSumB, notionalValueSumA, nonceB, nonceA, chainId, symmio
+                } = result;
 
-                if (!isUpnlToleranceOk(uPnlB, request.data.result.uPnlB, notionalValueSumB, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
+                if (!isUpnlToleranceOk(uPnlB, request.data.result.uPnlB, notionalValueSumB, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "address", value: partyB },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonceB },
-                    { type: "uint256", value: nonceA },
-                    { type: "int256", value: request.data.result.uPnlB },
-                    { type: "int256", value: request.data.result.uPnlA },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "address", value: partyB}, {
+                    type: "address", value: partyA
+                }, {type: "uint256", value: nonceB}, {type: "uint256", value: nonceA}, {
+                    type: "int256", value: request.data.result.uPnlB
+                }, {type: "int256", value: request.data.result.uPnlA}, {
+                    type: "uint256", value: request.data.timestamp
+                }, {type: "uint256", value: chainId},];
             }
 
             case "uPnlWithSymbolPrice": {
-                let { partyB, partyA, uPnlB, uPnlA, symbolId, price, notionalValueSumB, notionalValueSumA, nonceB, nonceA, chainId, symmio } = result;
+                let {
+                    partyB,
+                    partyA,
+                    uPnlB,
+                    uPnlA,
+                    symbolId,
+                    price,
+                    notionalValueSumB,
+                    notionalValueSumA,
+                    nonceB,
+                    nonceA,
+                    chainId,
+                    symmio
+                } = result;
 
-                if (!isUpnlToleranceOk(uPnlB, request.data.result.uPnlB, notionalValueSumB, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isPriceToleranceOk(price, request.data.result.price, PRICE_TOLERANCE).isOk) throw { message: `Price Tolerance Error` };
+                if (!isUpnlToleranceOk(uPnlB, request.data.result.uPnlB, notionalValueSumB, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isPriceToleranceOk(price, request.data.result.price, PRICE_TOLERANCE).isOk) throw new Error("Price Tolerance Error");
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "address", value: partyB },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonceB },
-                    { type: "uint256", value: nonceA },
-                    { type: "int256", value: request.data.result.uPnlB },
-                    { type: "int256", value: request.data.result.uPnlA },
-                    { type: "uint256", value: symbolId },
-                    { type: "uint256", value: request.data.result.price },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "address", value: partyB}, {
+                    type: "address", value: partyA
+                }, {type: "uint256", value: nonceB}, {type: "uint256", value: nonceA}, {
+                    type: "int256", value: request.data.result.uPnlB
+                }, {type: "int256", value: request.data.result.uPnlA}, {
+                    type: "uint256", value: symbolId
+                }, {type: "uint256", value: request.data.result.price}, {
+                    type: "uint256", value: request.data.timestamp
+                }, {type: "uint256", value: chainId},];
             }
 
             case "price": {
-                let { quoteIds, prices, chainId, symmio } = result;
+                let {quoteIds, prices, chainId, symmio} = result;
 
                 for (let [i, price] of prices.entries()) {
-                    if (!isPriceToleranceOk(price, request.data.result.prices[i], PRICE_TOLERANCE).isOk) throw { message: `Price Tolerance Error` };
+                    if (!isPriceToleranceOk(price, request.data.result.prices[i], PRICE_TOLERANCE).isOk) throw new Error("Price Tolerance Error");
                 }
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "uint256[]", value: quoteIds },
-                    { type: "uint256[]", value: request.data.result.prices },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "uint256[]", value: quoteIds}, {
+                    type: "uint256[]", value: request.data.result.prices
+                }, {type: "uint256", value: request.data.timestamp}, {type: "uint256", value: chainId},];
             }
 
             case "priceRange": {
@@ -857,30 +878,58 @@ module.exports = {
                     chainId,
                 } = result;
 
-                if (!isUpnlToleranceOk(uPnlB, request.data.result.uPnlB, notionalValueSumB, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk)
-                    throw { message: "uPnl Tolerance Error" };
-                if (!isPriceToleranceOk(price, request.data.result.price, PRICE_TOLERANCE).isOk) throw { message: `Price Tolerance Error` };
+                if (!isUpnlToleranceOk(uPnlB, request.data.result.uPnlB, notionalValueSumB, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                if (!isPriceToleranceOk(price, request.data.result.price, PRICE_TOLERANCE).isOk) throw new Error("Price Tolerance Error");
 
-                return [
-                    { type: "address", value: symmio },
-                    { type: "address", value: partyB },
-                    { type: "address", value: partyA },
-                    { type: "uint256", value: nonceB },
-                    { type: "uint256", value: nonceA },
-                    { type: "int256", value: request.data.result.uPnlB },
-                    { type: "int256", value: request.data.result.uPnlA },
-                    { type: "uint256", value: symbolId },
-                    { type: "uint256", value: request.data.result.price },
-                    { type: "uint256", value: startTime },
-                    { type: "uint256", value: endTime },
-                    { type: "uint256", value: lowest },
-                    { type: "uint256", value: highest },
-                    { type: "uint256", value: mean },
-                    { type: "uint256", value: request.data.timestamp },
-                    { type: "uint256", value: chainId },
-                ];
+                return [{type: "address", value: symmio}, {type: "address", value: partyB}, {
+                    type: "address", value: partyA
+                }, {type: "uint256", value: nonceB}, {type: "uint256", value: nonceA}, {
+                    type: "int256", value: request.data.result.uPnlB
+                }, {type: "int256", value: request.data.result.uPnlA}, {
+                    type: "uint256", value: symbolId
+                }, {type: "uint256", value: request.data.result.price}, {
+                    type: "uint256", value: startTime
+                }, {type: "uint256", value: endTime}, {type: "uint256", value: lowest}, {
+                    type: "uint256", value: highest
+                }, {type: "uint256", value: mean}, {type: "uint256", value: request.data.timestamp}, {
+                    type: "uint256", value: chainId
+                },];
+            }
+            case "settle_upnl": {
+                let {
+                    quoteSettlementData,
+                    uPnlA,
+                    upnlPartyBs,
+                    notionalValueSumA,
+                    notionalValueSumBs,
+                    nonceA,
+                    noncePartyBs,
+                    symmio,
+                    chainId
+                } = result;
+
+                if (!isUpnlToleranceOk(uPnlA, request.data.result.uPnlA, notionalValueSumA, UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+
+                let packedSettlementData = "";
+                quoteSettlementData.forEach((data, i) => {
+                    const partyBIndex = data[2];
+                    if (!isUpnlToleranceOk(upnlPartyBs[partyBIndex], request.data.result.upnlPartyBs[partyBIndex], notionalValueSumBs[partyBIndex], UPNL_TOLERANCE).isOk) throw new Error("uPnl Tolerance Error");
+                    if (!isPriceToleranceOk(data[1], request.data.result.quoteSettlementData[i][1], PRICE_TOLERANCE).isOk) throw new Error("Price Tolerance Error");
+                    packedSettlementData = Web3.utils.encodePacked(...[{
+                        type: "bytes", value: packedSettlementData
+                    }, {type: "uint256", value: request.data.result.quoteSettlementData[i][0]}, {
+                        type: "uint256", value: request.data.result.quoteSettlementData[i][1]
+                    }, {type: "uint8", value: request.data.result.quoteSettlementData[i][2]},]);
+                });
+
+                return [{type: "address", value: symmio}, {
+                    type: "string", value: "verifySettlement"
+                }, {type: "uint256[]", value: noncePartyBs}, {type: "uint256", value: nonceA}, {
+                    type: "bytes", value: packedSettlementData
+                }, {type: "int256[]", value: request.data.result.upnlPartyBs}, {
+                    type: "int256", value: request.data.result.uPnlA
+                }, {type: "uint256", value: request.data.timestamp}, {type: "uint256", value: chainId},];
             }
 
             default:
