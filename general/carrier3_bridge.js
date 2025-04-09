@@ -18,13 +18,12 @@ const ABI_getTx = [
 ]
 
 const BRIDGE_ADDRESSES = {
-  eth: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
-  optimism: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
-  arbitrum: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
+  sepolia: "0x5cdd607d463F5f15f741e2E7a75AB1343aF163F6",
+  bsctest: "0x1031b5A6965fcC29169D8942E36E37E75BB9FC2a",
 }
 
 module.exports = {
-  APP_NAME: 'mrc20_bridge',
+  APP_NAME: 'carrier3_bridge',
 
   onRequest: async function (request) {
     let {

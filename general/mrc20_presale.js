@@ -1,4 +1,4 @@
-const { toBaseUnit, soliditySha3, BN, recoverTypedMessage, Web3, ethCall } =
+const { toBaseUnit, soliditySha3, BN, recoverTypedSignature, Web3, ethCall } =
   MuonAppUtils
 const {
   ABI_userInfo,
@@ -170,7 +170,7 @@ module.exports = {
       message: { forAddress: forAddress }
     }
 
-    let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
+    let signer = recoverTypedSignature({data: typedData, signature: sign, version: "V4"});
     if (signer.toLowerCase() !== forAddress.toLowerCase())
       throw { message: 'Request signature mismatch' }
 
