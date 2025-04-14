@@ -1,4 +1,4 @@
-const { axios, toBaseUnit, soliditySha3, BN, recoverTypedMessage, ethCall } =
+const { axios, toBaseUnit, soliditySha3, BN, recoverTypedSignature, ethCall } =
   MuonAppUtils
 
 const getTimestamp = () => Math.floor(Date.now() / 1000)
@@ -110,7 +110,7 @@ module.exports = {
             message: { time: time, forAddress: forAddress }
           }
 
-          let signer = recoverTypedMessage({ data: typedData, sig: sign }, 'v4')
+          let signer = recoverTypedSignature({data: typedData, signature: sign, version: "V4"});
 
           if (signer.toLowerCase() !== forAddress.toLowerCase())
             throw { message: 'Request signature mismatch' }

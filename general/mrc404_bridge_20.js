@@ -10,7 +10,8 @@ const ABI_getTx = [
       { internalType: 'uint256', name: 'amount', type: 'uint256' },
       { internalType: 'uint256', name: 'fromChain', type: 'uint256' },
       { internalType: 'uint256', name: 'toChain', type: 'uint256' },
-      { internalType: 'address', name: 'user', type: 'address' }
+      { internalType: 'address', name: 'user', type: 'address' },
+      { internalType: "bytes", name: "nftData", type: "bytes" }
     ],
     stateMutability: 'view',
     type: 'function'
@@ -18,13 +19,17 @@ const ABI_getTx = [
 ]
 
 const BRIDGE_ADDRESSES = {
-  eth: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
-  optimism: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
-  arbitrum: "0x6B0251c3Ab1bfF327c4Fc9195354909FF44383b7",
+  // sepolia: "0x90FeC556De8caf34E2f4c655a954e4C6Dc0F1b22",
+  // mumbai: "0xD66bbf580248f72039F5a48231F8C3aD20335B4E",
+  bsc: "0xC4A08fAf00dA2843373851CD1031169B4eDfFF6a",
+  blast: "0xC4A08fAf00dA2843373851CD1031169B4eDfFF6a",
+  base: "0xC4A08fAf00dA2843373851CD1031169B4eDfFF6a",
+  arbitrum: "0xC4A08fAf00dA2843373851CD1031169B4eDfFF6a",
+  optimism: "0xC4A08fAf00dA2843373851CD1031169B4eDfFF6a"
 }
 
 module.exports = {
-  APP_NAME: 'mrc20_bridge',
+  APP_NAME: 'mrc404_bridge_20',
 
   onRequest: async function (request) {
     let {
@@ -49,14 +54,18 @@ module.exports = {
           ABI_getTx,
           depositNetwork
         )
-        let { txId, tokenId, amount, fromChain, toChain, user } = result
+        let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
+        if(!tokenId){
+          throw {message: "Invalid tx"}
+        }
         return {
           txId: txId.toString(),
           tokenId: tokenId.toString(),
           amount: amount.toString(),
           fromChain: fromChain.toString(),
           toChain: toChain.toString(),
-          user
+          user,
+          nftData
         }
       case 'test':
           return 'done';
@@ -70,7 +79,7 @@ module.exports = {
 
     switch (method) {
       case 'claim':
-        let { txId, tokenId, amount, fromChain, toChain, user } = result
+        let { txId, tokenId, amount, fromChain, toChain, user, nftData } = result
 
         return [
           { type: 'uint256', value: txId },
@@ -78,7 +87,8 @@ module.exports = {
           { type: 'uint256', value: amount },
           { type: 'uint256', value: fromChain },
           { type: 'uint256', value: toChain },
-          { type: 'address', value: user }
+          { type: 'address', value: user },
+          { type: 'bytes', value: nftData },
         ]
       case 'test':
         return [{type: 'string', value: result.toString()}]
