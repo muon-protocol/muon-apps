@@ -3,13 +3,13 @@ const { axios, Web3, ethGetBlock, BN } = MuonAppUtils;
 const HttpProvider = Web3.providers.HttpProvider;
 const w3 = new Web3(
   new HttpProvider(
-    process.env.WEB3_PROVIDER_BSC || "https://rpc.ankr.com/bsc",
+    process.env.WEB3_PROVIDER_AVALANCHE_MAINNET || "https://avalanche-c-chain-rpc.publicnode.com",
   ),
 );
 
 const bn = (num) => new BN(num)
 
-const HELPER_ADDR = "0x6C23fdF1Bc96Da84dd7b64F457046b0c72A9a422";
+const HELPER_ADDR = "0x795707350AFb184d293FCA7A604135568b89c781";
 const HELPER_ABI = [{"inputs":[{"internalType":"address","name":"stakerAddress","type":"address"}],"name":"getData","outputs":[{"components":[{"internalType":"uint64","name":"nodeId","type":"uint64"},{"internalType":"address","name":"nodeAddress","type":"address"},{"internalType":"address","name":"stakerAddress","type":"address"},{"internalType":"string","name":"peerId","type":"string"},{"internalType":"bool","name":"active","type":"bool"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint64[]","name":"roles","type":"uint64[]"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"lastEditTime","type":"uint256"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"paidReward","type":"uint256"},{"internalType":"uint256","name":"paidRewardPerToken","type":"uint256"},{"internalType":"uint256","name":"pendingRewards","type":"uint256"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"earned","type":"uint256"},{"internalType":"uint256","name":"rewardPerToken","type":"uint256"}],"internalType":"struct Helper.NodeData","name":"nodeData","type":"tuple"}],"stateMutability":"view","type":"function"}];
 const helperContract = new w3.eth.Contract(HELPER_ABI, HELPER_ADDR);
 
@@ -145,7 +145,7 @@ module.exports = {
           throw "It's not a staker address.";
         }
 
-        const block = await ethGetBlock("bsc", blockNumber);
+        const block = await ethGetBlock("avax", blockNumber);
         // if the node is active the endTime is now otherwise endTime is the node exit time
         const endTime =
           node.endTime > 0 ? Number(node.endTime) : Number(block.timestamp);
