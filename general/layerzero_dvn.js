@@ -38,7 +38,7 @@ const ABI_JOBS = [
       },
       {
         internalType: "uint64",
-        name: "confirmations",
+        name: "confirmations", // this defines the number of blocks for confirmation
         type: "uint64"
       },
       {
