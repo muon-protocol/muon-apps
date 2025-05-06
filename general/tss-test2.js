@@ -1,6 +1,6 @@
 const {soliditySha3} = MuonAppUtils
-const TssApp = {
-  APP_NAME: 'tss',
+const TssApp2 = {
+  APP_NAME: 'tss2',
   useTss: true,
 
   onRequest: async function (request) {
@@ -26,4 +26,4 @@ const TssApp = {
   }
 }
 
-module.exports = TssApp
+module.exports = TssApp2

@@ -29,7 +29,7 @@ module.exports = {
   APP_NAME: 'fear_game',
   REMOTE_CALL_TIMEOUT: 30000,
 
-  onRequest: async (request) => {
+  onRequest: async function (request) {
     let {
       method,
       data: { params }
@@ -69,7 +69,7 @@ module.exports = {
     }
   },
 
-  hashRequestResult: (request, result) => {
+  hashRequestResult: function (request, result) {
     let { method } = request
     switch (method) {
       case 'claim':
