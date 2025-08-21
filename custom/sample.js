@@ -23,7 +23,7 @@ module.exports = {
     'invokeTestMethod',
   ],
 
-  myReadOnlyMethod: async function(params){
+  myReadOnlyMethod: async function({params}){
     return {
       message: "sample readonly method",
       data: [
@@ -33,7 +33,7 @@ module.exports = {
     }
   },
 
-  invokeTestMethod: async function(params) {
+  invokeTestMethod: async function({params}) {
     let request = {
       method: 'call',
       data: {
@@ -61,6 +61,23 @@ module.exports = {
   },
 
   /**
+   * Run on all nodes before onRequest
+   * on the gateway node runs before onArrive
+   * @param request
+   * @returns {Promise<void>}
+   */
+  validateRequest: async function(request) {
+    const {method} = request
+    switch (method) {
+      case "test-method": {
+        /**
+         * Do your method validation here
+         */
+      }
+    }
+  },
+
+  /**
    * Request arrival hook
    * Runs only on the first node
    *
@@ -70,20 +87,23 @@ module.exports = {
   onArrive: async function (request) {
     let {method, data: {params}} = request;
     switch (method) {
-      case 'lock':
+      case 'lock-1':
         let {user} = params;
 
+        /**
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         *  Do all request validations here to prevent incorrect lock. *
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         */
+
         // looking for data in memory
-        let lock = await this.readNodeMem({"data.name": LOCK_NAME, "data.value": user})
+        let lock = await this.readNodeMem(`user-lock-${user}`)
         if (lock) {
           throw {message: `User [${user}] locked for a moment`}
         }
 
         // Write to memory
-        let memory = [
-          {type: 'uint256', name: LOCK_NAME, value: user}
-        ]
-        await this.writeNodeMem(memory, 120);
+        await this.writeNodeMem(`user-lock-${user}`, [{type: 'bool', value: true}], 120);
 
         // wait for memory write confirmation
         await timeout(1000);
@@ -101,27 +121,34 @@ module.exports = {
       case 'test_speed': {
         return 'speed test done.'
       }
+
       case 'test_redis':{
         let previews = await this.redis.get('last-exec-time');
         let current = `${Math.floor(Date.now()/1000)}`
         this.redis.set("last-exec-time", current);
         return "done";
       }
-      case 'lock':
+
+      case 'test_memory': {
         let { user } = params
+        return `Data stored in memory for user: ${user}`
+      }
 
-        // You can check for atomic run of the lock method
-        let lock = await this.readNodeMem({"data.name": LOCK_NAME, "data.value": user}, {distinct: "owner"})
-        if(lock.length === 0) {
-          throw {message: 'Memory write not confirmed.'}
-        }
-        else if(lock.length > 1) {
-          throw {message: 'Atomic run failed.'}
-        }
-
+      case 'lock-1': {
+        let {user} = params
         return 'lock done.'
+      }
 
-      case 'btc_price':
+      case 'lock-2': {
+        let {user} = params
+        /** Atomic locally read and write */
+        const alreadyLocked = await this.writeLocalMem(`lock-${user}`, [{type: "bool", value: true}], 120, {getset: true})
+        if(alreadyLocked)
+          throw `user locked`;
+        return 'lock done.'
+      }
+
+      case 'btc_price': {
         let result = await getBtcPrice()
         let price = toBaseUnit(
           result.bpi.USD.rate_float.toString(),
@@ -134,24 +161,27 @@ module.exports = {
           price,
           price_float: result.bpi.USD.rate_float
         }
+      }
+
       default:
         return 'test done'
     }
   },
 
-  hashRequestResult: (request, result) => {
+  signParams: function (request, result) {
     // console.log(result)
     switch (request.method) {
       case 'test_speed':
       case 'test_redis':
-      case 'lock':
-        return soliditySha3([{type: 'string', value: result}])
+      case 'test_memory':
+      case 'lock-1':
+      case 'lock-2':
+        return [{type: 'string', value: result}]
       case 'btc_price':
-        let hash = soliditySha3([
+        return [
           { type: 'uint256', value: request.data.result.time },
           { type: 'uint256', value: result.price }
-        ])
-        return hash
+        ]
       default:
         throw { message: `Unknown method: ${request.method}` }
     }
@@ -160,14 +190,15 @@ module.exports = {
   /**
    * store data on request confirm
    */
-  onMemWrite: (req, res) => {
-    if (req.method === 'lock') {
+  onMemWrite: function (req, res) {
+    if (req.method === 'test_memory') {
       let {
         data: {
           params: { user }
         }
       } = req
       return {
+        key: "sample-key",
         ttl: 10,
         data: [{ name: 'lock', type: 'string', value: user }]
       }

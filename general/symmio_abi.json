@@ -1,0 +1,250 @@
+[
+    {
+        "inputs": [{ "internalType": "uint256[]", "name": "quoteIds", "type": "uint256[]" }],
+        "name": "symbolNameByQuoteId",
+        "outputs": [{ "internalType": "string[]", "name": "", "type": "string[]" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [{ "internalType": "address", "name": "partyA", "type": "address" }],
+        "name": "nonceOfPartyA",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "address", "name": "partyB", "type": "address" },
+            { "internalType": "address", "name": "partyA", "type": "address" }
+        ],
+        "name": "nonceOfPartyB",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [{ "internalType": "address", "name": "partyA", "type": "address" }],
+        "name": "partyAPositionsCount",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "address", "name": "partyB", "type": "address" },
+            { "internalType": "address", "name": "partyA", "type": "address" }
+        ],
+        "name": "partyBPositionsCount",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "address", "name": "partyA", "type": "address" },
+            { "internalType": "uint256", "name": "start", "type": "uint256" },
+            { "internalType": "uint256", "name": "size", "type": "uint256" }
+        ],
+        "name": "getPartyAOpenPositions",
+        "outputs": [
+            {
+                "components": [
+                    { "internalType": "uint256", "name": "id", "type": "uint256" },
+                    { "internalType": "address[]", "name": "partyBsWhiteList", "type": "address[]" },
+                    { "internalType": "uint256", "name": "symbolId", "type": "uint256" },
+                    { "internalType": "enum PositionType", "name": "positionType", "type": "uint8" },
+                    { "internalType": "enum OrderType", "name": "orderType", "type": "uint8" },
+                    { "internalType": "uint256", "name": "openedPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "initialOpenedPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "requestedOpenPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "marketPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "quantity", "type": "uint256" },
+                    { "internalType": "uint256", "name": "closedAmount", "type": "uint256" },
+                    {
+                        "components": [
+                            { "internalType": "uint256", "name": "cva", "type": "uint256" },
+                            { "internalType": "uint256", "name": "lf", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyAmm", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyBmm", "type": "uint256" }
+                        ],
+                        "internalType": "struct LockedValues",
+                        "name": "initialLockedValues",
+                        "type": "tuple"
+                    },
+                    {
+                        "components": [
+                            { "internalType": "uint256", "name": "cva", "type": "uint256" },
+                            { "internalType": "uint256", "name": "lf", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyAmm", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyBmm", "type": "uint256" }
+                        ],
+                        "internalType": "struct LockedValues",
+                        "name": "lockedValues",
+                        "type": "tuple"
+                    },
+                    { "internalType": "uint256", "name": "maxFundingRate", "type": "uint256" },
+                    { "internalType": "address", "name": "partyA", "type": "address" },
+                    { "internalType": "address", "name": "partyB", "type": "address" },
+                    { "internalType": "enum QuoteStatus", "name": "quoteStatus", "type": "uint8" },
+                    { "internalType": "uint256", "name": "avgClosedPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "requestedClosePrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "quantityToClose", "type": "uint256" },
+                    { "internalType": "uint256", "name": "parentId", "type": "uint256" },
+                    { "internalType": "uint256", "name": "createTimestamp", "type": "uint256" },
+                    { "internalType": "uint256", "name": "statusModifyTimestamp", "type": "uint256" },
+                    { "internalType": "uint256", "name": "lastFundingPaymentTimestamp", "type": "uint256" },
+                    { "internalType": "uint256", "name": "deadline", "type": "uint256" },
+                    { "internalType": "uint256", "name": "tradingFee", "type": "uint256" }
+                ],
+                "internalType": "struct Quote[]",
+                "name": "",
+                "type": "tuple[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "address", "name": "partyB", "type": "address" },
+            { "internalType": "address", "name": "partyA", "type": "address" },
+            { "internalType": "uint256", "name": "start", "type": "uint256" },
+            { "internalType": "uint256", "name": "size", "type": "uint256" }
+        ],
+        "name": "getPartyBOpenPositions",
+        "outputs": [
+            {
+                "components": [
+                    { "internalType": "uint256", "name": "id", "type": "uint256" },
+                    { "internalType": "address[]", "name": "partyBsWhiteList", "type": "address[]" },
+                    { "internalType": "uint256", "name": "symbolId", "type": "uint256" },
+                    { "internalType": "enum PositionType", "name": "positionType", "type": "uint8" },
+                    { "internalType": "enum OrderType", "name": "orderType", "type": "uint8" },
+                    { "internalType": "uint256", "name": "openedPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "initialOpenedPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "requestedOpenPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "marketPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "quantity", "type": "uint256" },
+                    { "internalType": "uint256", "name": "closedAmount", "type": "uint256" },
+                    {
+                        "components": [
+                            { "internalType": "uint256", "name": "cva", "type": "uint256" },
+                            { "internalType": "uint256", "name": "lf", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyAmm", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyBmm", "type": "uint256" }
+                        ],
+                        "internalType": "struct LockedValues",
+                        "name": "initialLockedValues",
+                        "type": "tuple"
+                    },
+                    {
+                        "components": [
+                            { "internalType": "uint256", "name": "cva", "type": "uint256" },
+                            { "internalType": "uint256", "name": "lf", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyAmm", "type": "uint256" },
+                            { "internalType": "uint256", "name": "partyBmm", "type": "uint256" }
+                        ],
+                        "internalType": "struct LockedValues",
+                        "name": "lockedValues",
+                        "type": "tuple"
+                    },
+                    { "internalType": "uint256", "name": "maxFundingRate", "type": "uint256" },
+                    { "internalType": "address", "name": "partyA", "type": "address" },
+                    { "internalType": "address", "name": "partyB", "type": "address" },
+                    { "internalType": "enum QuoteStatus", "name": "quoteStatus", "type": "uint8" },
+                    { "internalType": "uint256", "name": "avgClosedPrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "requestedClosePrice", "type": "uint256" },
+                    { "internalType": "uint256", "name": "quantityToClose", "type": "uint256" },
+                    { "internalType": "uint256", "name": "parentId", "type": "uint256" },
+                    { "internalType": "uint256", "name": "createTimestamp", "type": "uint256" },
+                    { "internalType": "uint256", "name": "statusModifyTimestamp", "type": "uint256" },
+                    { "internalType": "uint256", "name": "lastFundingPaymentTimestamp", "type": "uint256" },
+                    { "internalType": "uint256", "name": "deadline", "type": "uint256" },
+                    { "internalType": "uint256", "name": "tradingFee", "type": "uint256" }
+                ],
+                "internalType": "struct Quote[]",
+                "name": "",
+                "type": "tuple[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [{ "internalType": "uint256[]", "name": "symbolIds", "type": "uint256[]" }],
+        "name": "symbolNameById",
+        "outputs": [{ "internalType": "string[]", "name": "", "type": "string[]" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "address", "name": "partyA", "type": "address" },
+            { "internalType": "address[]", "name": "partyBs", "type": "address[]" }
+        ],
+        "name": "allocatedBalanceOfPartyBs",
+        "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "partyA",
+                "type": "address"
+            }
+        ],
+        "name": "balanceInfoOfPartyA",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
