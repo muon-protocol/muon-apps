@@ -87,11 +87,11 @@ const EchoesSlotsApp = {
         if(!memory)
           throw `Global lock not performed`
 
-        const memData = JSON.parse(memory.value);
+        const memData = JSON.parse(memory.value || memory);
         const result = await this.randomNumberResult(request);
         const reqId = this.calculateRequestId(request, result);
 
-        if(memory.owner !== gwAddress || memData.seed !== deploymentSeed && memData.reqId !== reqId) {
+        if(memData.seed !== deploymentSeed && memData.reqId !== reqId) {
           throw { 
             message: `Error when checking lock`,
             memory: memData,
@@ -111,7 +111,7 @@ const EchoesSlotsApp = {
         if (!memory) {
           throw { message: `Lock not found.` };
         }
-        const memData = JSON.parse(memory.value);
+        const memData = JSON.parse(memory.value || memory);
         let req2 = await fetchRequest(this.netConfigs.networkId, memData.reqId);
         if(req2)
           throw `Lock is successfully done for the request ${memData.reqId}`;
