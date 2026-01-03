@@ -100,7 +100,7 @@ const EchoesSlotsApp = {
           }
         }
 
-        await this.writeLocalMem(`echoes-lock-${paramsHash}`, "locked", LOCK_DURATION, {preventRewrite: true})
+        //await this.writeLocalMem(`echoes-lock-${paramsHash}`, "locked", LOCK_DURATION, {preventRewrite: true})
 
         return result;
       }
