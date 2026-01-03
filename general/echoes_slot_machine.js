@@ -20,8 +20,10 @@ async function fetchRequest(networkId, requestId) {
     .catch(e => undefined);
 }
 
-const DeRandApp = {
+const EchoesSlotsApp = {
   APP_NAME: "echoes_slot_machine",
+
+  useFrost: true,
 
   hashParams: function(request) {
     let {
@@ -158,4 +160,4 @@ const DeRandApp = {
   }
 };
 
-module.exports = DeRandApp;
+module.exports = EchoesSlotsApp;
