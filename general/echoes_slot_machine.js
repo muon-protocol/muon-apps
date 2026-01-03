@@ -46,14 +46,14 @@ const EchoesSlotsApp = {
     switch (method) {
       case "random-number": {
         const paramsHash = this.hashParams(request)
-        let memory = await this.readGlobalMem(`echoes-lock-${paramsHash}`);
+        let memory = await this.readLocalMem(`echoes-lock-${paramsHash}`);
         if (memory) {
           throw { message: `The random already generated and locked for a while.` };
         }
 
         const result = await this.randomNumberResult(request)
         const reqId = this.calculateRequestId(request, result);
-        await this.writeGlobalMem(`echoes-lock-${paramsHash}`, JSON.stringify({seed: deploymentSeed, reqId}), LOCK_DURATION);
+        await this.writeLocalMem(`echoes-lock-${paramsHash}`, JSON.stringify({seed: deploymentSeed, reqId}), LOCK_DURATION);
       }
     }
   },
@@ -83,7 +83,7 @@ const EchoesSlotsApp = {
     switch (method) {
       case "random-number": {
         const paramsHash = this.hashParams(request)
-        const memory = await this.readGlobalMem(`echoes-lock-${paramsHash}`)
+        const memory = await this.readLocalMem(`echoes-lock-${paramsHash}`)
         if(!memory)
           throw `Global lock not performed`
 
@@ -107,7 +107,7 @@ const EchoesSlotsApp = {
       case "delete-global-memory": {
         const paramsHash = this.hashParams(request)
         const lockKey = `echoes-lock-${paramsHash}`
-        let memory = await this.readGlobalMem(lockKey);
+        let memory = await this.readLocalMem(lockKey);
         if (!memory) {
           throw { message: `Lock not found.` };
         }
@@ -153,7 +153,7 @@ const EchoesSlotsApp = {
     switch(request.method) {
       case "delete-global-memory": {
         let { key } = result;
-        await this.deleteGlobalMem(key, request)
+        //await this.deleteLocalMem(key, request)
         await this.deleteLocalMem(key)
       }
     }
