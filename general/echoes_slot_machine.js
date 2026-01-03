@@ -83,22 +83,22 @@ const EchoesSlotsApp = {
     switch (method) {
       case "random-number": {
         const paramsHash = this.hashParams(request)
-        const memory = await this.readLocalMem(`echoes-lock-${paramsHash}`)
-        if(!memory)
-          throw `Global lock not performed`
+        // const memory = await this.readLocalMem(`echoes-lock-${paramsHash}`)
+        // if(!memory)
+        //   throw `Global lock not performed`
 
-        const memData = JSON.parse(memory.value || memory);
+        // const memData = JSON.parse(memory.value || memory);
         const result = await this.randomNumberResult(request);
         const reqId = this.calculateRequestId(request, result);
 
-        if(memData.seed !== deploymentSeed && memData.reqId !== reqId) {
-          throw { 
-            message: `Error when checking lock`,
-            memory: memData,
-            gwAddress,
-            deploymentSeed,
-          }
-        }
+        // if(memData.seed !== deploymentSeed && memData.reqId !== reqId) {
+        //   throw { 
+        //     message: `Error when checking lock`,
+        //     memory: memData,
+        //     gwAddress,
+        //     deploymentSeed,
+        //   }
+        // }
 
         //await this.writeLocalMem(`echoes-lock-${paramsHash}`, "locked", LOCK_DURATION, {preventRewrite: true})
 
